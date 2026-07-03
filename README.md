@@ -19,17 +19,19 @@ The six philosophers will debate the topic in rounds. After each round the Judge
 ## Visual Design Specification
 
 ### Aesthetic Direction
-The interface combines low-fi pixel art visuals with hyper-realistic human movement animation. Characters are rendered in pixel art style but animate with fluid, natural motion to create an immersive conversation experience.
+The interface combines low-fi pixel art visuals with hyper-realistic human movement animation. Characters are rendered in pixel art style but animate with fluid, natural motion to create an immersive conversation experience. The mood is warm Mediterranean daylight — cream marble, sand-toned stone, azure sea and sky — in the manner of detailed retro pixel-art illustration, not cold or neon.
 
 ### Scene Composition
 
 **Camera Perspective**
 - First-person viewpoint positioned within the group circle
+- To make the viewer feel seated in the circle, the two nearest debaters are seen **from behind**: large, in the bottom corners of the frame, cropped by its edge
 - Speakers are the primary focus in the foreground
 - Camera angle is slightly elevated, looking down at the circle of debaters
 
 **Character Arrangement**
 - Six characters arranged in a semi-circle facing inward
+- The group is **seated** (stone benches), as at a symposium: four personas face the viewer across the circle; the Grump and the Synthesizer sit nearest the camera with their backs to it
 - Each character represents one of the six agent personas
 - Positions staggered for visual interest and to avoid symmetry
 - Characters maintain appropriate personal space while appearing engaged
@@ -37,10 +39,11 @@ The interface combines low-fi pixel art visuals with hyper-realistic human movem
 ### Character Design (Pixel Art Style)
 
 **Art Style**
-- Resolution: 32x48 pixels per character (scalable)
+- Resolution: 32x48 pixels per character as the base grid (scalable — characters nearer the camera are drawn on proportionally larger grids and at higher pixel density)
+- Realistic body proportions (heads roughly 1/6 of body height), not chibi
 - Color palette: Limited to 16-32 colors per character
 - Greek classical attire: Togas, chitons, sandals
-- Distinct color schemes for each persona
+- Distinct color schemes for each persona, muted/harmonized so all six sit naturally in the warm scene palette (the persona color appears as the garment, drape, or trim)
 - Minimal shading with cel-shading technique
 
 **Personas and Visual Identifiers**
@@ -88,12 +91,13 @@ The interface combines low-fi pixel art visuals with hyper-realistic human movem
 - Clear blue sky with subtle cloud details
 - Ancient Greek temple ruins in the distance
 
-**Color Palette**
-- Stone: #a8a29e, #78716c, #57534e
-- Sea: #0ea5e9, #0284c7, #0369a1
-- Sky: #dbeafe, #bfdbfe, #93c5fd
-- Vegetation: #22c55e, #16a34a, #15803d
-- Shadows: #4b5563, #374151
+**Color Palette** (warm Mediterranean daylight)
+- Marble/stone: #ede4d0, #d9c9a3, #b8a67f
+- Sea: #57a0cc, #3f86b8, #2f6f9e
+- Sky: #5ba3d0, #7fb9de, #a9d2ea
+- Vegetation: #8aa886, #6f8f6a, #57705a
+- Terracotta (pots, amphorae): #cc8352, #b0663a, #8a4a28
+- Shadows: warm umber, e.g. rgba(120, 96, 60, 0.35)
 
 ### Speech Bubble System
 
@@ -175,8 +179,8 @@ The entire application lives in a single `index.html` file with no dependencies 
 - All sprites and background art are drawn procedurally on the canvas at pixel-art resolution (no external image assets)
 
 ### How It Works
-1. The scene is rendered to a 960x540 canvas. Background layers (sky, sea, islands, temple, ruins, olive trees, mosaic floor) are painted once to an offscreen buffer at low resolution and upscaled with image smoothing disabled for a crisp pixel look.
-2. The six characters are drawn each frame from procedural 32x48 pixel-grid sprites, with breathing, blinking, nodding, mouth, and gesture animation driven by `requestAnimationFrame`.
+1. The scene is rendered to a 960x540 canvas. Background layers (sky, sea, islands, the Acropolis with its temple, the stone parapet, potted olive, amphora, and mosaic floor) are painted once to an offscreen buffer at low resolution and upscaled with image smoothing disabled for a crisp pixel look. Cream marble columns frame the scene in the foreground with parallax.
+2. The six characters are drawn each frame from procedural pixel-grid sprites: four seated debaters facing the viewer (40x62 grid), and the two nearest — Grump and Synthesizer — seen from behind as large figures cropped by the bottom corners of the frame (36x56 grid at double the pixel density). Breathing, blinking, nodding, mouth, and gesture animation is driven by `requestAnimationFrame`; back-view characters turn their head to profile while speaking.
 3. When a debate starts, the orchestrator runs up to `MAX_TURNS` rounds. In each round the five debaters speak in sequence (each sees the transcript so far), then the Judge deliberates and issues a `VERDICT: CONSENSUS` or `VERDICT: CONTINUE` marker. On consensus or after the final round, the Judge delivers a closing verdict.
 4. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
 

@@ -11,11 +11,12 @@ This project implements a multi-agent LLM debate system with a unique pixel art 
 ## Implementation Notes
 
 ### Visual Design Requirements
-- Style: Low-fi pixel art (32x48px characters) with hyper-realistic movement
-- Theme: Ancient Greek with Mediterranean background
-- Camera: First-person within the debate circle
-- Characters: Six distinct personas with unique visual identities
-- Animation: Fluid, natural movement synchronized with speech
+- Style: Low-fi pixel art (32x48px base grid, scaled up for characters nearer the camera) with hyper-realistic movement and realistic body proportions
+- Palette: Warm Mediterranean daylight — cream marble, sand stone, azure sea/sky
+- Theme: Ancient Greek with Mediterranean background (Acropolis and temple in the distance)
+- Camera: First-person within the debate circle — the two nearest debaters (Grump and Synthesizer) are seen from behind, large and cropped at the bottom corners; the other four sit facing the viewer
+- Characters: Six distinct seated personas with unique visual identities (persona color appears as garment, drape, or trim over a harmonized warm palette)
+- Animation: Fluid, natural movement synchronized with speech; back-view characters turn their head to profile while speaking
 
 ### Technical Stack
 - HTML5 Canvas for rendering
@@ -49,11 +50,10 @@ Each agent has a carefully crafted system prompt to maintain its role:
 ## Development Guidelines
 
 ### For Visual Assets
-- Use 32x48 pixel base size for characters
-- Create sprite sheets with animation frames
-- Maintain consistent color palette per character
-- Background should be layered (foreground, midground, background)
-- Use pixel art tools like Aseprite or Piskel
+- Use 32x48 pixel base size for characters, scaled to larger grids/pixel density the closer a character is to the camera
+- Sprites are procedural (drawn on canvas per frame from pixel-grid coordinates); if external art is ever introduced, use pixel art tools like Aseprite or Piskel
+- Maintain consistent color palette per character, harmonized to the warm scene palette
+- Background should be layered (foreground framing columns, stone parapet, sea/hill, sky)
 
 ### For Code
 - Keep canvas rendering separate from debate logic

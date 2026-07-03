@@ -7,21 +7,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
     :root {
-        --primary: #2563eb;
-        --secondary: #64748b;
-        --background: #1e293b;
-        --surface: #334155;
-        --text: #f1f5f9;
-        --text-secondary: #94a3b8;
-        --border: #475569;
-        --success: #22c55e;
+        --background: #2a2119;
+        --surface: #3a2f22;
+        --text: #f1e9d9;
+        --text-secondary: #b3a58c;
+        --border: #6b5d4a;
         --warning: #f59e0b;
-        --danger: #ef4444;
         --parchment: #f5e9d3;
         --parchment-ink: #44403c;
-        --stone-light: #a8a29e;
-        --stone-mid: #78716c;
-        --stone-dark: #57534e;
+        --stone-light: #d9c9a3;
+        --stone-mid: #a8946c;
+        --stone-dark: #6b5a3e;
     }
 
     * {
@@ -52,7 +48,7 @@
         flex: 1;
         position: relative;
         min-height: 0;
-        background: #0b1320;
+        background: #1c1610;
     }
 
     /* Stage is sized by JS to a centered 16:9 box inside #canvas-container.
@@ -173,7 +169,7 @@
         border-radius: 2px;
         padding: 9px 10px;
         outline: none;
-        box-shadow: inset 2px 2px 0 rgba(87, 83, 78, 0.35);
+        box-shadow: inset 2px 2px 0 rgba(107, 90, 62, 0.35);
         caret-color: var(--parchment-ink);
     }
 
@@ -188,23 +184,23 @@
     button {
         font-family: 'Press Start 2P', monospace;
         font-size: 10px;
-        color: var(--text);
+        color: #fff8ec;
         background: linear-gradient(180deg, var(--stone-light) 0%, var(--stone-mid) 55%, var(--stone-dark) 100%);
         border: 3px solid var(--stone-dark);
         border-radius: 3px;
         padding: 12px 16px;
         cursor: pointer;
         text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
-        box-shadow: 0 4px 0 #292524;
+        box-shadow: 0 4px 0 #241c12;
     }
 
     button:hover:not(:disabled) {
-        background: linear-gradient(180deg, #d6d3d1 0%, var(--stone-light) 55%, var(--stone-mid) 100%);
+        background: linear-gradient(180deg, #e8dcc0 0%, var(--stone-light) 55%, var(--stone-mid) 100%);
     }
 
     button:active:not(:disabled) {
         transform: translateY(3px);
-        box-shadow: 0 1px 0 #292524;
+        box-shadow: 0 1px 0 #241c12;
     }
 
     button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -255,7 +251,12 @@ const TYPE_SPEED_MS = 22;     // typing effect, per character
 const BUBBLE_LINGER_MS = 1000;
 
 const SCENE_W = 960, SCENE_H = 540; // logical scene resolution
-const BG_W = 240, BG_H = 135;       // low-res background pixel grid (4x upscale)
+const BG_W = 480, BG_H = 270;       // low-res background pixel grid (2x upscale)
+
+// Foreground (back-view) characters: sprite grid 36x56, anchored below the
+// bottom edge so their lower bodies are cropped by the frame.
+const BACK_U = 8, BACK_GRID_H = 56, BACK_BOTTOM = 612;
+const FACING_GRID_H = 62;
 
 /* ============================================================
  * Personas
@@ -265,23 +266,33 @@ const STYLE_RULES = 'Stay strictly in character. Reply in 2-4 short sentences of
 
 const PERSONAS = [
     {
-        id: 'socrates', name: 'Socrates', color: '#2563eb', textColor: '#ffffff',
-        system: 'You are Socrates, the probing questioner in a debate among six ancient Greek ' +
-            'philosophers. Use the Socratic method: never state your own opinion. Ask short, ' +
-            'pointed questions that expose hidden assumptions and contradictions in the topic ' +
-            'or in what the others have said. ' + STYLE_RULES,
-        x: 112, y: 468, scale: 3.3,
-        sprite: { skin: '#e8c39a', attire: '#f1f5f9', shade: '#cbd5e1', bald: true,
-                  beard: '#f8fafc', staff: true, sash: '#2563eb', brow: 'calm' }
+        id: 'grump', name: 'Grump', color: '#78716c', textColor: '#ffffff',
+        system: 'You are the Grump, the closed-minded critic in a debate among six ancient ' +
+            'Greek philosophers. Be cynical, dismissive and resistant to new ideas: voice ' +
+            'doubts, grumble about impracticality, and puncture enthusiasm. ' + STYLE_RULES,
+        pose: 'back', x: 140, u: BACK_U,
+        sprite: { skin: '#d9b48a', attire: '#8a8378', shade: '#6e675c', light: '#a29a8c',
+                  hair: '#9a938a', messy: true, slouch: true }
     },
     {
         id: 'contrarian', name: 'Contrarian', color: '#ef4444', textColor: '#ffffff',
         system: 'You are the Contrarian, the devil\'s advocate in a debate among six ancient ' +
             'Greek philosophers. Whatever position currently dominates the discussion, argue ' +
             'the opposite, sharply but honestly, to test the strength of the idea. ' + STYLE_RULES,
-        x: 288, y: 412, scale: 3.0,
-        sprite: { skin: '#e6b57f', attire: '#ef4444', shade: '#b91c1c', trim: '#fbbf24',
-                  hair: { color: '#3f2d20', style: 'short' }, crossedArms: true, brow: 'frown' }
+        pose: 'facing', x: 300, by: 445, u: 4,
+        sprite: { skin: '#c98850', attire: '#b5443f', light: '#c85a50', shade: '#8e332f',
+                  trim: '#d9a441', hair: { color: '#3a2a1e', style: 'short' },
+                  crossedArms: true, brow: 'frown' }
+    },
+    {
+        id: 'socrates', name: 'Socrates', color: '#2563eb', textColor: '#ffffff',
+        system: 'You are Socrates, the probing questioner in a debate among six ancient Greek ' +
+            'philosophers. Use the Socratic method: never state your own opinion. Ask short, ' +
+            'pointed questions that expose hidden assumptions and contradictions in the topic ' +
+            'or in what the others have said. ' + STYLE_RULES,
+        pose: 'facing', x: 435, by: 428, u: 4,
+        sprite: { skin: '#e3bd93', attire: '#f0e8d8', light: '#faf5ea', shade: '#cfc2a8',
+                  drape: '#3b6ea5', bald: true, beard: '#e8e2d4', staff: true, brow: 'calm' }
     },
     {
         id: 'freethinker', name: 'Free Thinker', color: '#8b5cf6', textColor: '#ffffff',
@@ -289,19 +300,18 @@ const PERSONAS = [
             'ancient Greek philosophers. Be creative and speculative: expand the space of ' +
             'possibilities, question constraints, and offer unconventional angles no one else ' +
             'has considered. ' + STYLE_RULES,
-        x: 448, y: 382, scale: 2.8,
-        sprite: { skin: '#e6b57f', attire: '#8b5cf6', shade: '#6d28d9',
-                  hair: { color: '#4c1d95', style: 'wild' }, brow: 'calm' }
+        pose: 'facing', x: 570, by: 432, u: 4,
+        sprite: { skin: '#8a5a36', attire: '#7d5fa8', light: '#937bc0', shade: '#5f4585',
+                  hair: { color: '#45306b', style: 'wild' }, brow: 'calm' }
     },
     {
-        id: 'grump', name: 'Grump', color: '#78716c', textColor: '#ffffff',
-        system: 'You are the Grump, the closed-minded critic in a debate among six ancient ' +
-            'Greek philosophers. Be cynical, dismissive and resistant to new ideas: voice ' +
-            'doubts, grumble about impracticality, and puncture enthusiasm. ' + STYLE_RULES,
-        x: 610, y: 386, scale: 2.8,
-        sprite: { skin: '#d9b48a', attire: '#78716c', shade: '#57534e',
-                  hair: { color: '#9ca3af', style: 'short' }, slouch: true,
-                  brow: 'frown', frownMouth: true }
+        id: 'judge', name: 'Judge', color: '#f59e0b', textColor: '#3b2205',
+        system: 'You are the Judge, the arbitrator in a debate among six ancient Greek ' +
+            'philosophers. Be fair and decisive: weigh the arguments made so far, name the ' +
+            'strongest points on each side, and guide the group toward consensus. ' + STYLE_RULES,
+        pose: 'facing', x: 705, by: 448, u: 4,
+        sprite: { skin: '#d9a066', attire: '#cf8a2e', light: '#e0a044', shade: '#a06a1e',
+                  trim: '#f5efe0', hair: { color: '#4a4440', style: 'short' }, brow: 'stern' }
     },
     {
         id: 'synthesizer', name: 'Synthesizer', color: '#10b981', textColor: '#062e24',
@@ -309,20 +319,19 @@ const PERSONAS = [
             'philosophers. Be balanced and analytical: identify common ground between the ' +
             'speakers, reconcile opposing views, and restate the emerging shared position. ' +
             STYLE_RULES,
-        x: 762, y: 414, scale: 3.0,
-        sprite: { skin: '#e6b57f', attire: '#10b981', shade: '#047857',
-                  hair: { color: '#292524', style: 'short' }, brow: 'calm', smile: true }
-    },
-    {
-        id: 'judge', name: 'Judge', color: '#f59e0b', textColor: '#3b2205',
-        system: 'You are the Judge, the arbitrator in a debate among six ancient Greek ' +
-            'philosophers. Be fair and decisive: weigh the arguments made so far, name the ' +
-            'strongest points on each side, and guide the group toward consensus. ' + STYLE_RULES,
-        x: 892, y: 466, scale: 3.3,
-        sprite: { skin: '#e6b57f', attire: '#f59e0b', shade: '#b45309', trim: '#ffffff',
-                  hair: { color: '#44403c', style: 'short' }, brow: 'stern' }
+        pose: 'back', x: 830, u: BACK_U,
+        sprite: { skin: '#c98850', attire: '#5f8760', shade: '#47684a', light: '#78a078',
+                  wrap: '#8fae8a', hair: '#2e2a26' }
     }
 ];
+
+// Speech bubble anchor: above the head for facing characters; at the head of
+// the large cropped foreground characters for back-view ones.
+for (const p of PERSONAS) {
+    p.bubble = p.pose === 'back'
+        ? { x: p.x, y: BACK_BOTTOM - BACK_GRID_H * p.u + 16 }
+        : { x: p.x, y: p.by - FACING_GRID_H * p.u - 10 };
+}
 
 /* ============================================================
  * Stage layout (letterboxed 16:9 canvas + overlay)
@@ -347,6 +356,7 @@ layoutStage();
 
 /* ============================================================
  * Background painting (once, to an offscreen low-res buffer)
+ * Warm Mediterranean daylight: cream marble, sand stone, azure sea.
  * ============================================================ */
 function mulberry32(seed) {
     return function () {
@@ -357,7 +367,8 @@ function mulberry32(seed) {
     };
 }
 
-const HORIZON = 52, COAST = 68, FLOOR = 74; // rows in the BG_W x BG_H grid
+const HORIZON = 84;                 // sea horizon row in the BG grid
+const WALL_TOP = 98, FLOOR = 122;   // stone parapet behind the circle
 
 function paintBackground() {
     const bg = document.createElement('canvas');
@@ -366,115 +377,126 @@ function paintBackground() {
     const rand = mulberry32(20260703);
     const px = (x, y, w, h, c) => { b.fillStyle = c; b.fillRect(x, y, w, h); };
 
-    // --- Sky (banded gradient) ---
-    px(0, 0, BG_W, 20, '#93c5fd');
-    px(0, 20, BG_W, 18, '#bfdbfe');
-    px(0, 38, BG_W, HORIZON - 38, '#dbeafe');
-    // Clouds
-    for (let i = 0; i < 7; i++) {
-        const cx = Math.floor(rand() * BG_W), cy = 4 + Math.floor(rand() * 30);
-        const cw = 10 + Math.floor(rand() * 16);
-        px(cx, cy, cw, 3, '#f8fafc');
-        px(cx + 3, cy - 2, cw - 6, 2, '#f8fafc');
-        px(cx - 2, cy + 3, cw - 3, 2, '#eff6ff');
+    // --- Sky (warm azure bands) ---
+    px(0, 0, BG_W, 30, '#5ba3d0');
+    px(0, 30, BG_W, 28, '#7fb9de');
+    px(0, 58, BG_W, HORIZON - 58, '#a9d2ea');
+    for (let i = 0; i < 8; i++) {                                   // cream clouds
+        const cx = Math.floor(rand() * BG_W), cy = 6 + Math.floor(rand() * 40);
+        const cw = 16 + Math.floor(rand() * 26);
+        px(cx, cy, cw, 4, '#f6f1e4');
+        px(cx + 4, cy - 3, cw - 8, 3, '#fffdf6');
+        px(cx - 3, cy + 4, cw - 4, 3, '#eee7d4');
     }
 
-    // --- Sea (banded, with shimmer) ---
-    px(0, HORIZON, BG_W, 6, '#0369a1');
-    px(0, HORIZON + 6, BG_W, 6, '#0284c7');
-    px(0, HORIZON + 12, BG_W, COAST - HORIZON - 12, '#0ea5e9');
-    for (let i = 0; i < 60; i++) {
-        px(Math.floor(rand() * BG_W), HORIZON + 2 + Math.floor(rand() * (COAST - HORIZON - 3)),
-           2 + Math.floor(rand() * 3), 1, rand() > 0.5 ? '#7dd3fc' : '#38bdf8');
-    }
-    // Distant islands on the horizon
-    const islands = [[26, 14], [70, 9], [196, 18]];
-    for (const [ix, iw] of islands) {
-        px(ix, HORIZON - 2, iw, 2, '#64748b');
-        px(ix + 2, HORIZON - 3, iw - 4, 1, '#475569');
-    }
-    // Distant temple ruins on a headland (right side)
-    px(168, HORIZON - 7, 30, 7, '#94a3b8');           // headland
-    px(174, HORIZON - 13, 18, 2, '#e7e5e4');          // pediment
-    px(176, HORIZON - 15, 14, 2, '#f5f5f4');
-    for (let c = 0; c < 5; c++) px(175 + c * 4, HORIZON - 11, 2, 5, '#e7e5e4'); // columns
-    px(174, HORIZON - 6, 18, 1, '#d6d3d1');           // stylobate
+    // --- Sea ---
+    px(0, HORIZON, BG_W, 4, '#2f6f9e');
+    px(0, HORIZON + 4, BG_W, 5, '#3f86b8');
+    px(0, HORIZON + 9, BG_W, WALL_TOP - HORIZON - 9, '#57a0cc');
+    for (let i = 0; i < 70; i++)
+        px(Math.floor(rand() * BG_W), HORIZON + 1 + Math.floor(rand() * 12),
+           2 + Math.floor(rand() * 3), 1, rand() > 0.5 ? '#8ec4e0' : '#6db3d6');
+    for (const [ix, iw] of [[40, 20], [126, 12], [214, 16]])        // hazy islands
+        { px(ix, HORIZON - 3, iw, 3, '#8b96a0'); px(ix + 3, HORIZON - 4, iw - 6, 1, '#7d8a94'); }
 
-    // --- Coastal strip / midground ground ---
-    px(0, COAST, BG_W, FLOOR - COAST, '#8a8078');
-    px(0, COAST, BG_W, 1, '#d6d3d1'); // shoreline highlight
+    // --- Acropolis headland (right), rising out of the sea ---
+    for (let x = 296; x < BG_W; x++) {
+        const top = Math.round(HORIZON - (x - 296) * 38 / 184);
+        px(x, top, 1, WALL_TOP - top, '#a08a5f');
+        if (x % 7 === 0) px(x, top + 2, 2, 2, '#8f7a50');           // scrub texture
+        if (x % 11 === 3) px(x, top + 6, 3, 2, '#7a9a5a');          // olive groves
+    }
+    for (let x = 340; x < BG_W; x++)                                 // rocky cliff band
+        px(x, Math.round(HORIZON - (x - 296) * 38 / 184), 1, 3, '#c9b184');
+    // Temple on the hilltop
+    px(364, 56, 92, 3, '#d9cbb0');                                   // stylobate
+    for (let i = 0; i < 8; i++) {
+        px(368 + i * 11, 42, 5, 14, '#ede4d0');
+        px(371 + i * 11, 42, 2, 14, '#c9b184');                      // column shading
+    }
+    px(364, 39, 92, 3, '#e6d9bd');                                   // architrave
+    px(374, 36, 72, 3, '#efe5cf');                                    // pediment steps
+    px(388, 33, 44, 3, '#efe5cf');
+    px(404, 30, 12, 3, '#f5eddb');
+    for (const cx of [318, 348, 462]) {                               // cypresses
+        px(cx, 62, 3, 16, '#2f4f34');
+        px(cx + 1, 58, 1, 5, '#2f4f34');
+    }
+    // Hazy coastline sliver on the left
+    px(0, 78, 90, 6, '#93a878');
+    px(0, 76, 52, 3, '#a3b585');
 
-    // Crumbling marble columns (midground)
-    const ruinCols = [[14, 10], [30, 7], [206, 9], [224, 12]];
-    for (const [rx, rh] of ruinCols) {
-        px(rx, FLOOR - rh, 4, rh, '#a8a29e');
-        px(rx, FLOOR - rh, 1, rh, '#d6d3d1');           // lit edge
-        px(rx + 3, FLOOR - rh, 1, rh, '#78716c');       // shaded edge
-        px(rx - 1, FLOOR - rh, 6, 1, '#d6d3d1');        // broken capital
-        if (rand() > 0.4) px(rx + 1, FLOOR - rh - 1, 2, 1, '#a8a29e'); // jagged top
-    }
-    // Fallen architectural fragments
-    px(44, FLOOR - 3, 9, 3, '#a8a29e'); px(45, FLOOR - 4, 7, 1, '#d6d3d1');
-    px(188, FLOOR - 2, 7, 2, '#78716c');
+    // --- Stone parapet behind the circle ---
+    px(0, WALL_TOP, BG_W, 4, '#e8dcc0');                              // coping
+    px(0, WALL_TOP + 4, BG_W, 1, '#b8a67f');
+    px(0, WALL_TOP + 5, BG_W, FLOOR - WALL_TOP - 5, '#d9c9a3');
+    for (let x = 0; x < BG_W; x += 26)                                 // block joints
+        px(x + (Math.floor(x / 26) % 2) * 13, WALL_TOP + 5, 1, FLOOR - WALL_TOP - 5, '#c4b28a');
+    px(0, WALL_TOP + 13, BG_W, 1, '#c4b28a');
+    for (let i = 0; i < 40; i++)                                        // weathering
+        px(Math.floor(rand() * BG_W), WALL_TOP + 6 + Math.floor(rand() * 15), 2, 1, '#cbb790');
 
-    // Olive trees (midground)
-    const trees = [[58, 0], [108, 1], [152, 0], [216, 1]];
-    for (const [tx, v] of trees) {
-        const th = 9 + v * 2;
-        px(tx + 3, FLOOR - th + 6, 2, th - 6, '#7c5a3a');           // trunk
-        px(tx + 2, FLOOR - th + 7, 1, 2, '#7c5a3a');                // gnarl
-        px(tx, FLOOR - th, 8, 5, '#16a34a');                        // canopy
-        px(tx + 1, FLOOR - th - 2, 6, 2, '#22c55e');
-        px(tx - 1, FLOOR - th + 2, 2, 2, '#15803d');
-        px(tx + 7, FLOOR - th + 1, 2, 2, '#15803d');
-    }
-    // Low Mediterranean vegetation (rosemary / thyme tufts)
-    for (let i = 0; i < 10; i++) {
-        const vx = Math.floor(rand() * BG_W);
-        px(vx, FLOOR - 2, 3, 2, rand() > 0.5 ? '#15803d' : '#16a34a');
-        px(vx + 1, FLOOR - 3, 1, 1, '#22c55e');
-    }
+    // Potted olive tree standing on the parapet (right of the circle)
+    px(310, 68, 26, 22, '#6f8f6a');                                    // foliage mass
+    px(306, 74, 8, 8, '#57705a'); px(332, 72, 6, 8, '#57705a');
+    px(314, 64, 14, 6, '#8aa886'); px(322, 84, 10, 6, '#8aa886');
+    px(321, 88, 3, 10, '#7c5a3a');                                     // trunk
+    px(314, 96, 18, 3, '#c47a4a');                                     // pot rim
+    px(316, 99, 14, 10, '#b0663a');
+    px(317, 99, 3, 9, '#cc8352'); px(327, 100, 2, 8, '#8a4a28');
 
-    // --- Stone floor with mosaic pattern ---
-    px(0, FLOOR, BG_W, BG_H - FLOOR, '#a8a29e');
-    for (let y = FLOOR; y < BG_H; y += 6) px(0, y, BG_W, 1, '#78716c');            // grout rows
-    for (let y = FLOOR; y < BG_H; y += 6)
-        for (let x = (y / 6 | 0) % 2 * 3; x < BG_W; x += 6) px(x, y + 1, 1, 5, '#78716c'); // grout cols
-    for (let i = 0; i < 130; i++) {                                                 // tesserae
-        const mx = Math.floor(rand() * BG_W), my = FLOOR + 1 + Math.floor(rand() * (BG_H - FLOOR - 2));
-        const tone = rand();
-        px(mx, my, 2, 2, tone > 0.75 ? '#57534e' : tone > 0.5 ? '#d6d3d1' : '#8a8078');
+    // --- Sand-stone floor ---
+    px(0, FLOOR, BG_W, BG_H - FLOOR, '#d9c9a3');
+    px(0, FLOOR, BG_W, 3, '#c4b28a');                                  // shadow at the wall
+    const rows = [128, 138, 150, 164, 180, 198, 218, 240, 264];        // perspective joints
+    for (const y of rows) px(0, y, BG_W, 1, '#b8a67f');
+    for (let i = 0; i < rows.length - 1; i++) {
+        const span = 34 + i * 8;                                        // tiles widen nearer
+        for (let x = (i % 2) * (span >> 1); x < BG_W; x += span)
+            px(x, rows[i] + 1, 1, rows[i + 1] - rows[i] - 1, '#c4b28a');
     }
-    // Central mosaic medallion
-    px(104, 96, 32, 18, '#78716c');
-    px(106, 98, 28, 14, '#d6d3d1');
-    px(110, 101, 20, 8, '#0284c7');
-    px(114, 103, 12, 4, '#d6d3d1');
-    // Olive branches scattered on the ground
-    const branches = [[70, 106], [170, 120], [40, 124], [205, 102]];
-    for (const [ox, oy] of branches) {
-        px(ox, oy, 7, 1, '#7c5a3a');
-        px(ox + 1, oy - 1, 2, 1, '#16a34a'); px(ox + 4, oy - 1, 2, 1, '#22c55e');
-        px(ox + 2, oy + 1, 2, 1, '#15803d'); px(ox + 5, oy + 1, 2, 1, '#16a34a');
+    for (let i = 0; i < 120; i++) {                                     // worn tesserae
+        const t = rand();
+        px(Math.floor(rand() * BG_W), FLOOR + 3 + Math.floor(rand() * (BG_H - FLOOR - 4)),
+           2, 1, t > 0.66 ? '#e8dcc0' : t > 0.33 ? '#c4b28a' : '#cbb790');
     }
+    // Central mosaic medallion (between the two foreground debaters)
+    for (let y = 208; y < BG_H; y++)
+        for (let x = 200; x < 280; x++) {
+            const d = Math.hypot(x - 240, (y - 244) * 1.6);             // squashed by perspective
+            if (d >= 36) continue;
+            const c = d < 9 ? '#e8dcc0' : d < 15 ? '#6d98b4' : d < 21 ? '#e8dcc0'
+                    : d < 27 ? '#6d98b4' : d < 32 ? '#cbb790' : '#b8a67f';
+            if ((x + y) % 5 !== 0) px(x, y, 1, 1, c);                    // tessera gaps
+        }
+    // Amphora resting on the floor
+    px(147, 238, 6, 5, '#b0663a'); px(145, 237, 10, 2, '#8a4a28');       // neck & lip
+    px(141, 243, 18, 3, '#b0663a');                                       // shoulders
+    px(139, 246, 22, 10, '#b0663a');                                      // body
+    px(141, 256, 18, 4, '#b0663a'); px(144, 260, 12, 3, '#a05a30');
+    px(146, 263, 8, 2, '#8a4a28'); px(143, 265, 14, 2, '#7a4020');        // foot
+    px(141, 247, 4, 9, '#cc8352'); px(155, 247, 4, 9, '#8a4a28');          // shading
+    px(139, 251, 22, 2, '#5f3420');                                        // painted band
+    px(137, 243, 3, 8, '#8a4a28'); px(160, 243, 3, 8, '#8a4a28');           // handles
     return bg;
 }
 
-// Foreground: partial stone pillars framing the scene (drawn over characters)
+// Foreground: cream marble columns framing the scene (drawn over characters)
 function paintForeground() {
     const fg = document.createElement('canvas');
     fg.width = BG_W; fg.height = BG_H;
     const f = fg.getContext('2d');
     const px = (x, y, w, h, c) => { f.fillStyle = c; f.fillRect(x, y, w, h); };
-    for (const [base, flip] of [[0, false], [BG_W - 13, true]]) {
-        px(base, 0, 13, BG_H, '#78716c');                        // shaft
-        px(flip ? base + 11 : base, 0, 2, BG_H, '#57534e');      // outer shade
-        px(flip ? base : base + 10, 0, 3, BG_H, '#a8a29e');      // lit edge
-        for (let y = 6; y < BG_H; y += 10)                       // fluting
-            px(base + 4, y, 2, 6, flip ? '#57534e' : '#8a8078');
-        px(base - (flip ? 2 : 0), 0, 15, 5, '#a8a29e');          // capital
-        px(base - (flip ? 2 : 0), 5, 15, 2, '#57534e');
-        px(base, BG_H - 6, 13, 6, '#8a8078');                    // weathered base
+    for (const [base, flip] of [[0, false], [BG_W - 26, true]]) {
+        px(base, 0, 26, BG_H, '#ede4d0');                                   // shaft
+        px(flip ? base : base + 22, 0, 4, BG_H, '#f7f0dd');                 // lit edge
+        px(flip ? base + 23 : base, 0, 3, BG_H, '#c9b184');                 // shaded edge
+        for (let i = 1; i < 6; i++)                                          // fluting
+            px(base + 2 + i * 4, 12, 1, BG_H - 12, flip ? '#d5c5a5' : '#dccfae');
+        px(base - (flip ? 4 : 0), 0, 30, 8, '#e6d9bd');                     // capital
+        px(base - (flip ? 4 : 0), 8, 30, 3, '#c9b184');
+        px(base - (flip ? 4 : 0), BG_H - 14, 30, 14, '#e0d3b4');             // base slab
+        px(base - (flip ? 4 : 0), BG_H - 14, 30, 2, '#c9b184');
     }
     return fg;
 }
@@ -483,7 +505,9 @@ const bgCanvas = paintBackground();
 const fgCanvas = paintForeground();
 
 /* ============================================================
- * Characters: procedural 32x48 pixel-grid sprites
+ * Characters
+ * Facing characters: seated, 40x62 pixel grid, realistic proportions.
+ * Back-view characters: 36x56 grid, large, cropped at the frame edge.
  * ============================================================ */
 const chars = PERSONAS.map(p => ({
     p,
@@ -495,19 +519,21 @@ const chars = PERSONAS.map(p => ({
     nodUntil: 0
 }));
 
-function drawCharacter(c, now) {
-    const s = c.p.sprite, u = c.p.scale;
+function shadeOf(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, (n >> 16) - 40), g = Math.max(0, (n >> 8 & 255) - 40), bl = Math.max(0, (n & 255) - 40);
+    return `rgb(${r},${g},${bl})`;
+}
+
+function lightOf(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.min(255, (n >> 16) + 28), g = Math.min(255, (n >> 8 & 255) + 28), bl = Math.min(255, (n & 255) + 28);
+    return `rgb(${r},${g},${bl})`;
+}
+
+function animState(c, now) {
     const t = now / 1000;
-
-    // Breathing / idle weight shift (whole-body 1px bob)
-    const bob = Math.round(Math.sin(t * 1.7 + c.phase) * 0.6 + 0.5) - 1; // -1..0
-    const sway = c.state === 'idle' ? Math.round(Math.sin(t * 0.55 + c.phase)) : 0; // weight shift
-
-    // Blinking
     if (now >= c.nextBlink) { c.blinkUntil = now + 130; c.nextBlink = now + 1800 + Math.random() * 3500; }
-    const blink = now < c.blinkUntil;
-
-    // Nods: synced to speech when speaking, occasional agreement when listening
     let nod = 0;
     if (c.state === 'speaking') {
         nod = Math.sin(t * 5.5 + c.phase) > 0.55 ? 1 : 0;
@@ -515,153 +541,213 @@ function drawCharacter(c, now) {
         if (now >= c.nextNod) { c.nodUntil = now + 550; c.nextNod = now + 2500 + Math.random() * 5000; }
         if (now < c.nodUntil) nod = Math.floor((now - (c.nodUntil - 550)) / 140) % 2;
     }
+    return {
+        t,
+        bob: Math.sin(t * 1.7 + c.phase) > 0 ? 0 : -1,                 // breathing
+        blink: now < c.blinkUntil,
+        nod,
+        turn: c.state !== 'speaking' ? Math.round(Math.sin(t * 0.35 + c.phase * 2) * 0.8) : 0,
+        gesture: c.state === 'speaking' ? Math.floor(t * 2.2) % 3 : -1,
+        mouthFrame: c.state === 'speaking' ? Math.floor(now / 130) % 3 : -1
+    };
+}
 
-    // Idle head turns (subtle 1px eye/head shift)
-    const turn = c.state !== 'speaking' ? Math.round(Math.sin(t * 0.35 + c.phase * 2) * 0.8) : 0;
-
-    const slouch = s.slouch ? 2 : 0;
-    const X = c.p.x - 16 * u + sway * u * 0.5;
-    const Y = c.p.y - 48 * u + bob * u;
+/* ---------- Seated, facing the viewer ---------- */
+function drawFacingChar(c, now) {
+    const s = c.p.sprite, u = c.p.u;
+    const a = animState(c, now);
+    const X = c.p.x - 20 * u, Y = c.p.by - FACING_GRID_H * u + a.bob * u;
     const px = (col, row, w, h, color) => {
         ctx.fillStyle = color;
         ctx.fillRect(Math.round(X + col * u), Math.round(Y + row * u), Math.ceil(w * u), Math.ceil(h * u));
     };
+    const skinShade = shadeOf(s.skin);
 
-    // Shadow
-    ctx.fillStyle = 'rgba(55, 65, 81, 0.45)';
+    // Ground shadow
+    ctx.fillStyle = 'rgba(120, 96, 60, 0.35)';
     ctx.beginPath();
-    ctx.ellipse(c.p.x, c.p.y - u, 12 * u, 2.4 * u, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.p.x, c.p.by - u, 16 * u, 3 * u, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Staff (behind body)
-    if (s.staff) {
-        px(27, 8 + slouch, 2, 38 - slouch, '#8b5a2b');
-        px(26, 6 + slouch, 4, 3, '#6b4423'); // knob
-    }
+    // Marble bench (ends visible either side of the seated figure)
+    px(0, 34, 40, 3, '#f2ead6');
+    px(0, 37, 40, 1, '#98815c');
+    px(0, 38, 40, 15, '#c2ae83');
+    px(1, 39, 2, 13, '#d5c39a'); px(36, 39, 3, 14, '#a8946c');
+    px(0, 53, 40, 3, '#8d7854');
 
-    // Legs & sandals
-    px(12, 38, 3, 6, s.skin); px(17, 38, 3, 6, s.skin);
-    px(11, 44, 5, 2, '#7c5a3a'); px(16, 44, 5, 2, '#7c5a3a');       // sandals
-    px(12, 42, 1, 2, '#5d4227'); px(18, 42, 1, 2, '#5d4227');       // straps
+    // Staff leaning against the bench (Socrates)
+    if (s.staff) { px(36, 6, 2, 55, '#8b5a2b'); px(35, 4, 4, 3, '#6b4423'); }
 
-    // Lower garment (skirt of toga/chiton/tunic)
-    px(9, 30, 14, 8, s.attire);
-    px(8, 36, 16, 2, s.attire);
-    px(9, 30, 2, 8, s.shade);                                       // fold shading
-    px(15, 31, 1, 7, s.shade);
-    px(20, 32, 1, 6, s.shade);
-    if (s.trim) px(8, 37, 16, 1, s.trim);                           // hem trim
+    // Shins & feet (robe hem drawn over the top of the shins)
+    px(12, 48, 4, 11, s.skin); px(15, 48, 1, 11, skinShade);
+    px(24, 48, 4, 11, s.skin); px(27, 48, 1, 11, skinShade);
+    px(10, 58, 7, 3, s.skin); px(23, 58, 7, 3, s.skin);
+    px(9, 60, 9, 2, '#7c5a3a'); px(22, 60, 9, 2, '#7c5a3a');           // sandal soles
+    px(11, 58, 4, 1, '#5d4227'); px(24, 58, 4, 1, '#5d4227');          // straps
+    px(13, 53, 2, 1, '#5d4227'); px(25, 53, 2, 1, '#5d4227');          // shin laces
+
+    // Lap and robe over the knees
+    px(8, 31, 24, 8, s.light);
+    px(18, 33, 4, 6, s.shade);                                          // fold between knees
+    px(9, 39, 22, 11, s.attire);                                        // hanging hem
+    px(13, 40, 1, 9, s.shade); px(22, 40, 1, 9, s.shade); px(26, 40, 1, 8, s.shade);
+    if (s.trim) px(9, 49, 22, 1, s.trim);
+    px(9, 50, 22, 1, s.shade);
 
     // Torso
-    const sh = 16 + slouch;                                          // shoulder row
-    px(9, sh, 14, 30 - sh, s.attire);
-    px(7, sh, 3, 4, s.attire); px(22, sh, 3, 4, s.attire);           // shoulders
-    px(9, sh, 1, 30 - sh, s.shade);                                  // side shading
-    px(21, sh + 2, 2, 28 - sh, s.shade);
-    if (s.trim) px(12, sh, 8, 1, s.trim);                            // neckline trim
-    if (s.sash) for (let i = 0; i < 12; i++) px(10 + i, sh + 2 + i, 2, 2, s.sash); // diagonal sash
+    px(10, 15, 20, 8, s.attire);
+    px(11, 23, 18, 8, s.attire);
+    px(10, 15, 2, 8, s.shade); px(11, 23, 2, 8, s.shade);
+    px(20, 17, 1, 13, s.shade);
+    px(8, 15, 4, 4, s.attire); px(28, 15, 4, 4, s.attire);              // shoulder caps
+    px(17, 15, 6, 1, s.skin); px(18, 16, 4, 1, s.skin); px(19, 17, 2, 1, s.skin); // chest V
+    if (s.trim) px(15, 14, 10, 1, s.trim);
+    px(11, 23, 18, 1, shadeOf(s.shade));                                 // belt line
+    if (s.drape) {                                                        // himation drape
+        for (let i = 0; i < 15; i++) px(25 - i, 15 + i, 5, 1, s.drape);
+        px(28, 15, 4, 4, s.drape);                                        // over the shoulder
+        px(8, 31, 9, 2, s.drape);                                          // falling onto the lap
+    }
 
     // Arms
-    const speakGesture = c.state === 'speaking' ? Math.floor(t * 2.2) % 3 : -1;
-    if (s.crossedArms) {
-        px(8, 21 + slouch, 16, 4, s.shade);                          // crossed forearms
-        px(8, 21 + slouch, 16, 1, s.attire);
-        px(8, 23 + slouch, 3, 2, s.skin); px(21, 23 + slouch, 3, 2, s.skin); // tucked hands
+    if (a.gesture === 1) {
+        // Both hands raised, palms open (mid-argument, like the reference)
+        px(7, 16, 3, 6, s.attire); px(30, 16, 3, 6, s.attire);
+        px(5, 12, 3, 8, s.skin); px(32, 12, 3, 8, s.skin);
+        px(4, 9, 4, 4, s.skin); px(32, 9, 4, 4, s.skin);
+    } else if (a.gesture === 2) {
+        // Right hand raised, pointing; left resting
+        px(8, 16, 3, 7, s.attire); px(9, 23, 3, 4, s.skin);
+        px(11, 27, 3, 4, s.skin); px(13, 30, 4, 3, s.skin);
+        px(30, 16, 3, 5, s.attire);
+        px(32, 13, 3, 7, s.skin); px(33, 10, 3, 3, s.skin); px(34, 8, 1, 3, s.skin);
+    } else if (s.crossedArms) {
+        px(9, 24, 22, 4, s.attire);
+        px(9, 24, 22, 1, s.light);
+        px(9, 25, 3, 2, s.skin); px(28, 25, 3, 2, s.skin);               // tucked hands
     } else {
-        // Left arm always at side
-        px(6, sh + 1, 2, 6, s.attire); px(6, sh + 7, 2, 6, s.skin); px(6, sh + 13, 2, 2, s.skin);
-        if (speakGesture === 1) {
-            // Right arm raised, open palm (gesturing)
-            px(24, sh + 1, 2, 3, s.attire);
-            px(26, sh - 2, 2, 4, s.skin);
-            px(26, sh - 5, 3, 3, s.skin);                            // open hand
-        } else if (speakGesture === 2) {
-            // Right arm out, pointing
-            px(24, sh + 1, 2, 4, s.attire);
-            px(26, sh + 3, 4, 2, s.skin);
-            px(30, sh + 3, 2, 1, s.skin);                            // pointing finger
-        } else if (s.staff) {
-            // Gripping the staff
-            px(24, sh + 1, 2, 5, s.attire);
-            px(26, sh + 5, 2, 3, s.skin);                            // hand on staff
-        } else {
-            px(24, sh + 1, 2, 6, s.attire); px(24, sh + 7, 2, 6, s.skin); px(24, sh + 13, 2, 2, s.skin);
-        }
+        // Hands resting on the lap
+        px(8, 16, 3, 7, s.attire); px(29, 16, 3, 7, s.attire);
+        px(9, 23, 3, 4, s.skin); px(28, 23, 3, 4, s.skin);
+        px(11, 27, 3, 4, s.skin); px(26, 27, 3, 4, s.skin);
+        px(13, 30, 4, 3, s.skin); px(23, 30, 4, 3, s.skin);
     }
 
     // Neck & head
-    const hy = slouch + nod;                                         // head vertical offset
-    px(14, 14 + hy, 4, 2, s.skin);
-    px(11 + turn * 0.5, 4 + hy, 10, 10, s.skin);
-    px(11 + turn * 0.5, 4 + hy, 1, 10, shadeOf(s.skin));             // face side shading
+    const hy = a.nod, tn = a.turn;
+    px(18, 12 + hy, 4, 3, s.skin);
+    px(15 + tn, 2 + hy, 10, 11, s.skin);
+    px(15 + tn, 2 + hy, 1, 11, skinShade);
+    px(16 + tn, 12 + hy, 8, 1, skinShade);                                // jaw shade
 
-    // Hair / bald
+    // Hair
     if (s.bald) {
-        px(11, 4 + hy, 10, 1, shadeOf(s.skin));                      // shiny pate
-        px(10, 7 + hy, 1, 4, s.beard || '#e7e5e4');                  // side wisps
-        px(21, 7 + hy, 1, 4, s.beard || '#e7e5e4');
-    } else if (s.hair && s.hair.style === 'wild') {
+        px(15 + tn, 2 + hy, 10, 1, '#f2d8b5');                            // shining pate
+        px(14 + tn, 5 + hy, 1, 5, s.beard); px(25 + tn, 5 + hy, 1, 5, s.beard);
+    } else if (s.hair.style === 'wild') {
         const hc = s.hair.color;
-        px(10, 2 + hy, 12, 3, hc);
-        px(8, 0 + hy, 3, 3, hc); px(13, -1 + hy, 3, 3, hc); px(18, 0 + hy, 4, 2, hc);
-        px(22, 1 + hy, 2, 3, hc); px(7, 3 + hy, 2, 2, hc);
-        px(9, 4 + hy, 2, 5, hc); px(21, 4 + hy, 2, 5, hc);           // wild sideburns
-    } else if (s.hair) {
+        px(13 + tn, 0 + hy, 14, 4, hc);
+        px(11 + tn, 1 + hy, 3, 3, hc); px(17 + tn, -1 + hy, 3, 2, hc);
+        px(22 + tn, 0 + hy, 4, 2, hc); px(26 + tn, 2 + hy, 2, 3, hc);
+        px(14 + tn, 3 + hy, 2, 6, hc); px(24 + tn, 3 + hy, 2, 6, hc);      // wild sideburns
+    } else {
         const hc = s.hair.color;
-        px(10, 2 + hy, 12, 3, hc);
-        px(10, 4 + hy, 2, 4, hc); px(20, 4 + hy, 2, 4, hc);          // short sides
+        px(14 + tn, 0 + hy, 12, 4, hc);
+        px(14 + tn, 3 + hy, 2, 4, hc); px(24 + tn, 3 + hy, 2, 4, hc);
     }
 
-    // Beard
+    // Beard (over jaw and neck)
     if (s.beard) {
-        px(11, 11 + hy, 10, 3, s.beard);
-        px(12, 14 + hy, 8, 3, s.beard);
-        px(13, 17 + hy, 6, 1, s.beard);
-        px(14, 11 + hy, 4, 1, s.skin);                               // keep mouth area clear
+        px(14 + tn, 9 + hy, 12, 3, s.beard);
+        px(15 + tn, 12 + hy, 10, 3, s.beard);
+        px(16 + tn, 15 + hy, 8, 1, s.beard);
+        px(18 + tn, 10 + hy, 4, 1, s.skin);                                // clear the mouth
     }
 
     // Brows
-    const browColor = s.beard ? '#d6d3d1' : (s.hair ? s.hair.color : '#44403c');
+    const browColor = s.beard ? '#cfc8b8' : (s.hair ? s.hair.color : '#3a2a1e');
     if (s.brow === 'frown') {
-        px(12 + turn, 6 + hy, 3, 1, browColor); px(17 + turn, 6 + hy, 3, 1, browColor);
-        px(14 + turn, 7 + hy, 1, 1, browColor); px(17 + turn, 7 + hy, 1, 1, browColor); // angled in
+        px(16 + tn, 4 + hy, 3, 1, browColor); px(21 + tn, 4 + hy, 3, 1, browColor);
+        px(18 + tn, 5 + hy, 1, 1, browColor); px(21 + tn, 5 + hy, 1, 1, browColor);
     } else if (s.brow === 'stern') {
-        px(12 + turn, 7 + hy, 4, 1, browColor); px(16 + turn, 7 + hy, 4, 1, browColor);
+        px(16 + tn, 5 + hy, 4, 1, browColor); px(20 + tn, 5 + hy, 4, 1, browColor);
     } else {
-        px(12 + turn, 7 + hy, 3, 1, browColor); px(17 + turn, 7 + hy, 3, 1, browColor);
+        px(16 + tn, 5 + hy, 3, 1, browColor); px(21 + tn, 5 + hy, 3, 1, browColor);
     }
 
-    // Eyes
-    if (blink) {
-        px(13 + turn, 9 + hy, 2, 1, shadeOf(s.skin)); px(17 + turn, 9 + hy, 2, 1, shadeOf(s.skin));
+    // Eyes & nose
+    if (a.blink) {
+        px(16 + tn, 7 + hy, 2, 1, skinShade); px(21 + tn, 7 + hy, 2, 1, skinShade);
     } else {
-        px(13 + turn, 8 + hy, 2, 2, '#f8fafc'); px(17 + turn, 8 + hy, 2, 2, '#f8fafc');
-        px(13 + turn + (turn > 0 ? 1 : 0), 9 + hy, 1, 1, '#1c1917');
-        px(17 + turn + (turn > 0 ? 1 : 0), 9 + hy, 1, 1, '#1c1917');
+        px(16 + tn, 6 + hy, 2, 2, '#f7f3ea'); px(21 + tn, 6 + hy, 2, 2, '#f7f3ea');
+        const pd = tn > 0 ? 1 : 0;
+        px(16 + tn + pd, 7 + hy, 1, 1, '#2b1d12'); px(21 + tn + pd, 7 + hy, 1, 1, '#2b1d12');
     }
+    px(19 + tn, 7 + hy, 1, 3, skinShade);                                  // nose
 
     // Mouth (2-3 frame speech animation)
-    const mouthColor = '#7f4436';
-    if (c.state === 'speaking') {
-        const frame = Math.floor(now / 130) % 3;
-        if (frame === 0) px(14, 11 + hy, 4, 1, mouthColor);
-        else if (frame === 1) px(14, 11 + hy, 4, 2, '#57302a');
-        else { px(15, 11 + hy, 2, 2, '#57302a'); px(14, 11 + hy, 4, 1, mouthColor); }
-    } else if (s.frownMouth) {
-        px(14, 12 + hy, 4, 1, mouthColor);
-        px(13, 11 + hy, 1, 1, mouthColor); px(18, 11 + hy, 1, 1, mouthColor);
-    } else if (s.smile) {
-        px(14, 11 + hy, 4, 1, mouthColor);
-        px(13, 10 + hy, 1, 1, mouthColor); px(18, 10 + hy, 1, 1, mouthColor);
-    } else {
-        px(14, 11 + hy, 4, 1, mouthColor);
-    }
+    const mc = '#7f4436';
+    if (a.mouthFrame === 0) px(18 + tn, 10 + hy, 4, 1, mc);
+    else if (a.mouthFrame === 1) px(18 + tn, 10 + hy, 4, 2, '#57302a');
+    else if (a.mouthFrame === 2) { px(19 + tn, 10 + hy, 2, 2, '#57302a'); px(18 + tn, 10 + hy, 4, 1, mc); }
+    else if (s.frownMouth) { px(18 + tn, 11 + hy, 4, 1, mc); px(17 + tn, 10 + hy, 1, 1, mc); px(22 + tn, 10 + hy, 1, 1, mc); }
+    else if (s.smile) { px(18 + tn, 10 + hy, 4, 1, mc); px(17 + tn, 9 + hy, 1, 1, mc); px(22 + tn, 9 + hy, 1, 1, mc); }
+    else px(18 + tn, 10 + hy, 4, 1, mc);
 }
 
-function shadeOf(hex) {
-    const n = parseInt(hex.slice(1), 16);
-    const r = Math.max(0, (n >> 16) - 40), g = Math.max(0, (n >> 8 & 255) - 40), bl = Math.max(0, (n & 255) - 40);
-    return `rgb(${r},${g},${bl})`;
+/* ---------- Foreground, seen from behind ---------- */
+function drawBackChar(c, now) {
+    const s = c.p.sprite, u = c.p.u;
+    const a = animState(c, now);
+    const bobPx = a.bob * 4;                                              // gentler at this scale
+    const X = c.p.x - 18 * u, Y = BACK_BOTTOM - BACK_GRID_H * u;
+    const px = (col, row, w, h, color, yPx = 0) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(Math.round(X + col * u), Math.round(Y + row * u + yPx), Math.ceil(w * u), Math.ceil(h * u));
+    };
+
+    // Back and shoulders
+    px(6, 16, 24, 3, s.attire, bobPx);
+    px(3, 19, 30, 37, s.attire);
+    px(17, 22, 2, 34, s.shade);                                            // spine fold
+    px(9, 26, 1, 30, s.shade); px(26, 24, 1, 32, s.shade);
+    px(4, 19, 2, 37, s.light);                                             // rim light
+    px(30, 19, 2, 37, s.shade);
+    if (s.wrap) for (let i = 0; i < 13; i++) px(6 + i, 20 + i, 6, 1, s.wrap); // himation band
+    if (s.slouch) { px(8, 19, 20, 2, s.light); }                           // hunched shoulder roll
+
+    // Arms at the sides (cropped by the frame)
+    px(0, 20, 4, 12, s.attire); px(32, 20, 4, 12, s.attire);
+    px(0, 32, 4, 14, s.skin); px(32, 32, 4, 14, s.skin);
+
+    // Speaking: raised gesturing hand beside the shoulder
+    if (c.state === 'speaking') {
+        const up = Math.floor(a.t * 2.2) % 2;
+        px(33, up ? 12 : 15, 4, 5, s.skin, bobPx);
+    }
+
+    // Head (back of the head is mostly hair) — slouch sinks it into the shoulders
+    const hPx = (s.slouch ? 3 * u : 0) + a.nod * 4 + bobPx;
+    px(14, 12, 8, 6, s.skin, hPx);                                          // neck
+    px(13, 1, 10, 2, s.hair, hPx);                                          // crown
+    px(12, 3, 12, 8, s.hair, hPx);
+    px(13, 11, 10, 3, s.hair, hPx);                                         // nape taper
+    px(13, 3, 1, 7, lightOf(s.hair), hPx);                                  // sheen strands
+    px(19, 2, 1, 9, lightOf(s.hair), hPx);
+    if (s.messy) {
+        px(10, 4, 2, 2, s.hair, hPx); px(24, 3, 2, 2, s.hair, hPx);
+        px(23, 7, 2, 1, s.hair, hPx); px(15, 0, 3, 1, s.hair, hPx);
+    }
+    px(11, 7, 1, 3, s.skin, hPx); px(24, 7, 1, 3, s.skin, hPx);              // ears
+
+    // Speaking: head turns to profile so the cheek and moving jaw show
+    if (c.state === 'speaking') {
+        px(25, 5, 3, 6, s.skin, hPx);                                        // cheek
+        px(27, 7, 2, 2, s.skin, hPx);                                        // nose
+        px(26, 4, 2, 1, s.hair, hPx);                                        // brow edge
+        if (a.mouthFrame === 1) px(26, 10, 2, 1, '#57302a', hPx);            // jaw opens
+    }
 }
 
 /* ============================================================
@@ -677,10 +763,12 @@ function render(now) {
     const camX = Math.sin(t * 0.13) * 3, camY = Math.cos(t * 0.09) * 2;
     ctx.drawImage(bgCanvas, -8 + camX, -8 + camY, SCENE_W + 16, SCENE_H + 16);
 
-    // Characters, farthest (smallest y) first
-    for (const c of [...chars].sort((a, b) => a.p.y - b.p.y)) drawCharacter(c, now);
+    // Facing characters, farthest first; then the two foreground backs
+    const facing = chars.filter(c => c.p.pose === 'facing').sort((a, b) => a.p.by - b.p.by);
+    for (const c of facing) drawFacingChar(c, now);
+    for (const c of chars) if (c.p.pose === 'back') drawBackChar(c, now);
 
-    // Foreground framing pillars, with stronger parallax
+    // Framing marble columns, with stronger parallax
     ctx.drawImage(fgCanvas, -12 + camX * 2, -12 + camY * 2, SCENE_W + 24, SCENE_H + 24);
 
     requestAnimationFrame(render);
@@ -722,11 +810,9 @@ function speak(persona, text) {
         tail.style.borderTopColor = persona.color;
         el.append(name, body, tail);
 
-        // Anchor above the head, emerging from the mouth area
-        const headY = persona.y - 48 * persona.scale - 10;
         // Clamp so the bubble (max-width 34%, centered on the speaker) stays on screen
-        el.style.left = Math.min(82, Math.max(18, persona.x / SCENE_W * 100)) + '%';
-        el.style.top = Math.max(2, headY / SCENE_H * 100) + '%';
+        el.style.left = Math.min(82, Math.max(18, persona.bubble.x / SCENE_W * 100)) + '%';
+        el.style.top = Math.max(2, persona.bubble.y / SCENE_H * 100) + '%';
         bubbleLayer.appendChild(el);
         activeBubbles.set(persona.id, el);
         requestAnimationFrame(() => el.classList.add('visible'));
@@ -836,12 +922,13 @@ function buildPrompt(topic, transcript, extra) {
 }
 
 const VERDICT_RE = /\bVERDICT:\s*(CONSENSUS|CONTINUE)\b/i;
+const SPEAKING_ORDER = ['socrates', 'contrarian', 'freethinker', 'grump', 'synthesizer'];
 
 let controller = null;
 
 async function runDebate(topic) {
     const transcript = [];
-    const debaters = PERSONAS.filter(p => p.id !== 'judge');
+    const debaters = SPEAKING_ORDER.map(id => PERSONAS.find(p => p.id === id));
     const judge = PERSONAS.find(p => p.id === 'judge');
     const signal = controller.signal;
     let consensus = false;
