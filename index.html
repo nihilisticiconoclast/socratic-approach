@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Approach - Multi-Agent Debate</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --primary: #2563eb;
+        --secondary: #64748b;
+        --background: #1e293b;
+        --surface: #334155;
+        --text: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --border: #475569;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --parchment: #f5e9d3;
+        --parchment-ink: #44403c;
+        --stone-light: #a8a29e;
+        --stone-mid: #78716c;
+        --stone-dark: #57534e;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: 'Press Start 2P', monospace;
+        background-color: var(--background);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #game-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    #canvas-container {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+        background: #0b1320;
+    }
+
+    /* Stage is sized by JS to a centered 16:9 box inside #canvas-container.
+       The bubble layer shares its coordinate space with the canvas. */
+    #stage {
+        position: absolute;
+    }
+
+    #debate-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+    }
+
+    #bubble-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+
+    .bubble {
+        position: absolute;
+        transform: translate(-50%, -100%) scale(1);
+        max-width: 34%;
+        min-width: 120px;
+        padding: 10px;
+        border: 2px solid;
+        border-radius: 5px;
+        font-size: 9px;
+        line-height: 1.7;
+        word-wrap: break-word;
+        image-rendering: pixelated;
+        transition: opacity 0.3s steps(4), transform 0.3s steps(4);
+        opacity: 0;
+    }
+
+    .bubble.visible { opacity: 1; }
+    .bubble.hiding  { opacity: 0; transform: translate(-50%, -60%) scale(0.4); }
+
+    .bubble .speaker-name {
+        display: block;
+        font-size: 8px;
+        margin-bottom: 6px;
+        opacity: 0.9;
+        text-transform: uppercase;
+    }
+
+    .bubble .tail {
+        position: absolute;
+        left: 50%;
+        bottom: -10px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid;
+    }
+
+    #status-scroll {
+        position: absolute;
+        left: 50%;
+        bottom: 12px;
+        transform: translateX(-50%);
+        background: var(--parchment);
+        color: var(--parchment-ink);
+        border: 3px solid var(--stone-dark);
+        border-left-width: 10px;
+        border-right-width: 10px;
+        border-radius: 3px;
+        padding: 8px 14px;
+        font-size: 9px;
+        max-width: 80%;
+        text-align: center;
+        transition: opacity 0.4s steps(4);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #status-scroll.visible { opacity: 0.95; }
+    #status-scroll.error { color: #991b1b; }
+
+    #input-section {
+        background: var(--surface);
+        border-top: 4px solid var(--stone-dark);
+        padding: 12px 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-width: 160px;
+    }
+
+    .field.grow-2 { flex: 3; min-width: 240px; }
+
+    .field label {
+        font-size: 8px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+    }
+
+    .field input {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 10px;
+        color: var(--parchment-ink);
+        background: var(--parchment);
+        border: 3px solid var(--stone-mid);
+        border-radius: 2px;
+        padding: 9px 10px;
+        outline: none;
+        box-shadow: inset 2px 2px 0 rgba(87, 83, 78, 0.35);
+        caret-color: var(--parchment-ink);
+    }
+
+    .field input:focus { border-color: var(--warning); }
+
+    .buttons {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    button {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 10px;
+        color: var(--text);
+        background: linear-gradient(180deg, var(--stone-light) 0%, var(--stone-mid) 55%, var(--stone-dark) 100%);
+        border: 3px solid var(--stone-dark);
+        border-radius: 3px;
+        padding: 12px 16px;
+        cursor: pointer;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+        box-shadow: 0 4px 0 #292524;
+    }
+
+    button:hover:not(:disabled) {
+        background: linear-gradient(180deg, #d6d3d1 0%, var(--stone-light) 55%, var(--stone-mid) 100%);
+    }
+
+    button:active:not(:disabled) {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 #292524;
+    }
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #stop-btn { display: none; }
+</style>
+</head>
+<body>
+<div id="game-container">
+    <div id="canvas-container">
+        <div id="stage">
+            <canvas id="debate-canvas" width="960" height="540"></canvas>
+            <div id="bubble-layer"></div>
+            <div id="status-scroll"></div>
+        </div>
+    </div>
+    <div id="input-section">
+        <div class="field grow-2">
+            <label for="topic-input">Question / Idea / Belief</label>
+            <input id="topic-input" type="text" maxlength="300"
+                   placeholder="e.g. Is honesty always the best policy?">
+        </div>
+        <div class="field">
+            <label for="key-input">OpenRouter API Key</label>
+            <input id="key-input" type="password" placeholder="sk-or-..." autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="model-input">Model</label>
+            <input id="model-input" type="text" spellcheck="false">
+        </div>
+        <div class="buttons">
+            <button id="start-btn">Begin Debate</button>
+            <button id="stop-btn">Stop</button>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+ * Configuration
+ * ============================================================ */
+const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
+const MAX_TURNS = 3;          // debate rounds before the Judge must rule
+const API_DELAY_MS = 1200;    // pause between calls (free-tier rate limits)
+const TYPE_SPEED_MS = 22;     // typing effect, per character
+const BUBBLE_LINGER_MS = 1000;
+
+const SCENE_W = 960, SCENE_H = 540; // logical scene resolution
+const BG_W = 240, BG_H = 135;       // low-res background pixel grid (4x upscale)
+
+/* ============================================================
+ * Personas
+ * ============================================================ */
+const STYLE_RULES = 'Stay strictly in character. Reply in 2-4 short sentences of plain ' +
+    'spoken prose: no markdown, no lists, no stage directions, no quotation of your own name.';
+
+const PERSONAS = [
+    {
+        id: 'socrates', name: 'Socrates', color: '#2563eb', textColor: '#ffffff',
+        system: 'You are Socrates, the probing questioner in a debate among six ancient Greek ' +
+            'philosophers. Use the Socratic method: never state your own opinion. Ask short, ' +
+            'pointed questions that expose hidden assumptions and contradictions in the topic ' +
+            'or in what the others have said. ' + STYLE_RULES,
+        x: 112, y: 468, scale: 3.3,
+        sprite: { skin: '#e8c39a', attire: '#f1f5f9', shade: '#cbd5e1', bald: true,
+                  beard: '#f8fafc', staff: true, sash: '#2563eb', brow: 'calm' }
+    },
+    {
+        id: 'contrarian', name: 'Contrarian', color: '#ef4444', textColor: '#ffffff',
+        system: 'You are the Contrarian, the devil\'s advocate in a debate among six ancient ' +
+            'Greek philosophers. Whatever position currently dominates the discussion, argue ' +
+            'the opposite, sharply but honestly, to test the strength of the idea. ' + STYLE_RULES,
+        x: 288, y: 412, scale: 3.0,
+        sprite: { skin: '#e6b57f', attire: '#ef4444', shade: '#b91c1c', trim: '#fbbf24',
+                  hair: { color: '#3f2d20', style: 'short' }, crossedArms: true, brow: 'frown' }
+    },
+    {
+        id: 'freethinker', name: 'Free Thinker', color: '#8b5cf6', textColor: '#ffffff',
+        system: 'You are the Free Thinker, the open-minded explorer in a debate among six ' +
+            'ancient Greek philosophers. Be creative and speculative: expand the space of ' +
+            'possibilities, question constraints, and offer unconventional angles no one else ' +
+            'has considered. ' + STYLE_RULES,
+        x: 448, y: 382, scale: 2.8,
+        sprite: { skin: '#e6b57f', attire: '#8b5cf6', shade: '#6d28d9',
+                  hair: { color: '#4c1d95', style: 'wild' }, brow: 'calm' }
+    },
+    {
+        id: 'grump', name: 'Grump', color: '#78716c', textColor: '#ffffff',
+        system: 'You are the Grump, the closed-minded critic in a debate among six ancient ' +
+            'Greek philosophers. Be cynical, dismissive and resistant to new ideas: voice ' +
+            'doubts, grumble about impracticality, and puncture enthusiasm. ' + STYLE_RULES,
+        x: 610, y: 386, scale: 2.8,
+        sprite: { skin: '#d9b48a', attire: '#78716c', shade: '#57534e',
+                  hair: { color: '#9ca3af', style: 'short' }, slouch: true,
+                  brow: 'frown', frownMouth: true }
+    },
+    {
+        id: 'synthesizer', name: 'Synthesizer', color: '#10b981', textColor: '#062e24',
+        system: 'You are the Synthesizer, the integrator in a debate among six ancient Greek ' +
+            'philosophers. Be balanced and analytical: identify common ground between the ' +
+            'speakers, reconcile opposing views, and restate the emerging shared position. ' +
+            STYLE_RULES,
+        x: 762, y: 414, scale: 3.0,
+        sprite: { skin: '#e6b57f', attire: '#10b981', shade: '#047857',
+                  hair: { color: '#292524', style: 'short' }, brow: 'calm', smile: true }
+    },
+    {
+        id: 'judge', name: 'Judge', color: '#f59e0b', textColor: '#3b2205',
+        system: 'You are the Judge, the arbitrator in a debate among six ancient Greek ' +
+            'philosophers. Be fair and decisive: weigh the arguments made so far, name the ' +
+            'strongest points on each side, and guide the group toward consensus. ' + STYLE_RULES,
+        x: 892, y: 466, scale: 3.3,
+        sprite: { skin: '#e6b57f', attire: '#f59e0b', shade: '#b45309', trim: '#ffffff',
+                  hair: { color: '#44403c', style: 'short' }, brow: 'stern' }
+    }
+];
+
+/* ============================================================
+ * Stage layout (letterboxed 16:9 canvas + overlay)
+ * ============================================================ */
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('debate-canvas');
+const ctx = canvas.getContext('2d');
+const bubbleLayer = document.getElementById('bubble-layer');
+const statusEl = document.getElementById('status-scroll');
+
+function layoutStage() {
+    const box = document.getElementById('canvas-container').getBoundingClientRect();
+    const scale = Math.min(box.width / SCENE_W, box.height / SCENE_H);
+    const w = Math.floor(SCENE_W * scale), h = Math.floor(SCENE_H * scale);
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+    stage.style.left = Math.floor((box.width - w) / 2) + 'px';
+    stage.style.top = Math.floor((box.height - h) / 2) + 'px';
+}
+window.addEventListener('resize', layoutStage);
+layoutStage();
+
+/* ============================================================
+ * Background painting (once, to an offscreen low-res buffer)
+ * ============================================================ */
+function mulberry32(seed) {
+    return function () {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+const HORIZON = 52, COAST = 68, FLOOR = 74; // rows in the BG_W x BG_H grid
+
+function paintBackground() {
+    const bg = document.createElement('canvas');
+    bg.width = BG_W; bg.height = BG_H;
+    const b = bg.getContext('2d');
+    const rand = mulberry32(20260703);
+    const px = (x, y, w, h, c) => { b.fillStyle = c; b.fillRect(x, y, w, h); };
+
+    // --- Sky (banded gradient) ---
+    px(0, 0, BG_W, 20, '#93c5fd');
+    px(0, 20, BG_W, 18, '#bfdbfe');
+    px(0, 38, BG_W, HORIZON - 38, '#dbeafe');
+    // Clouds
+    for (let i = 0; i < 7; i++) {
+        const cx = Math.floor(rand() * BG_W), cy = 4 + Math.floor(rand() * 30);
+        const cw = 10 + Math.floor(rand() * 16);
+        px(cx, cy, cw, 3, '#f8fafc');
+        px(cx + 3, cy - 2, cw - 6, 2, '#f8fafc');
+        px(cx - 2, cy + 3, cw - 3, 2, '#eff6ff');
+    }
+
+    // --- Sea (banded, with shimmer) ---
+    px(0, HORIZON, BG_W, 6, '#0369a1');
+    px(0, HORIZON + 6, BG_W, 6, '#0284c7');
+    px(0, HORIZON + 12, BG_W, COAST - HORIZON - 12, '#0ea5e9');
+    for (let i = 0; i < 60; i++) {
+        px(Math.floor(rand() * BG_W), HORIZON + 2 + Math.floor(rand() * (COAST - HORIZON - 3)),
+           2 + Math.floor(rand() * 3), 1, rand() > 0.5 ? '#7dd3fc' : '#38bdf8');
+    }
+    // Distant islands on the horizon
+    const islands = [[26, 14], [70, 9], [196, 18]];
+    for (const [ix, iw] of islands) {
+        px(ix, HORIZON - 2, iw, 2, '#64748b');
+        px(ix + 2, HORIZON - 3, iw - 4, 1, '#475569');
+    }
+    // Distant temple ruins on a headland (right side)
+    px(168, HORIZON - 7, 30, 7, '#94a3b8');           // headland
+    px(174, HORIZON - 13, 18, 2, '#e7e5e4');          // pediment
+    px(176, HORIZON - 15, 14, 2, '#f5f5f4');
+    for (let c = 0; c < 5; c++) px(175 + c * 4, HORIZON - 11, 2, 5, '#e7e5e4'); // columns
+    px(174, HORIZON - 6, 18, 1, '#d6d3d1');           // stylobate
+
+    // --- Coastal strip / midground ground ---
+    px(0, COAST, BG_W, FLOOR - COAST, '#8a8078');
+    px(0, COAST, BG_W, 1, '#d6d3d1'); // shoreline highlight
+
+    // Crumbling marble columns (midground)
+    const ruinCols = [[14, 10], [30, 7], [206, 9], [224, 12]];
+    for (const [rx, rh] of ruinCols) {
+        px(rx, FLOOR - rh, 4, rh, '#a8a29e');
+        px(rx, FLOOR - rh, 1, rh, '#d6d3d1');           // lit edge
+        px(rx + 3, FLOOR - rh, 1, rh, '#78716c');       // shaded edge
+        px(rx - 1, FLOOR - rh, 6, 1, '#d6d3d1');        // broken capital
+        if (rand() > 0.4) px(rx + 1, FLOOR - rh - 1, 2, 1, '#a8a29e'); // jagged top
+    }
+    // Fallen architectural fragments
+    px(44, FLOOR - 3, 9, 3, '#a8a29e'); px(45, FLOOR - 4, 7, 1, '#d6d3d1');
+    px(188, FLOOR - 2, 7, 2, '#78716c');
+
+    // Olive trees (midground)
+    const trees = [[58, 0], [108, 1], [152, 0], [216, 1]];
+    for (const [tx, v] of trees) {
+        const th = 9 + v * 2;
+        px(tx + 3, FLOOR - th + 6, 2, th - 6, '#7c5a3a');           // trunk
+        px(tx + 2, FLOOR - th + 7, 1, 2, '#7c5a3a');                // gnarl
+        px(tx, FLOOR - th, 8, 5, '#16a34a');                        // canopy
+        px(tx + 1, FLOOR - th - 2, 6, 2, '#22c55e');
+        px(tx - 1, FLOOR - th + 2, 2, 2, '#15803d');
+        px(tx + 7, FLOOR - th + 1, 2, 2, '#15803d');
+    }
+    // Low Mediterranean vegetation (rosemary / thyme tufts)
+    for (let i = 0; i < 10; i++) {
+        const vx = Math.floor(rand() * BG_W);
+        px(vx, FLOOR - 2, 3, 2, rand() > 0.5 ? '#15803d' : '#16a34a');
+        px(vx + 1, FLOOR - 3, 1, 1, '#22c55e');
+    }
+
+    // --- Stone floor with mosaic pattern ---
+    px(0, FLOOR, BG_W, BG_H - FLOOR, '#a8a29e');
+    for (let y = FLOOR; y < BG_H; y += 6) px(0, y, BG_W, 1, '#78716c');            // grout rows
+    for (let y = FLOOR; y < BG_H; y += 6)
+        for (let x = (y / 6 | 0) % 2 * 3; x < BG_W; x += 6) px(x, y + 1, 1, 5, '#78716c'); // grout cols
+    for (let i = 0; i < 130; i++) {                                                 // tesserae
+        const mx = Math.floor(rand() * BG_W), my = FLOOR + 1 + Math.floor(rand() * (BG_H - FLOOR - 2));
+        const tone = rand();
+        px(mx, my, 2, 2, tone > 0.75 ? '#57534e' : tone > 0.5 ? '#d6d3d1' : '#8a8078');
+    }
+    // Central mosaic medallion
+    px(104, 96, 32, 18, '#78716c');
+    px(106, 98, 28, 14, '#d6d3d1');
+    px(110, 101, 20, 8, '#0284c7');
+    px(114, 103, 12, 4, '#d6d3d1');
+    // Olive branches scattered on the ground
+    const branches = [[70, 106], [170, 120], [40, 124], [205, 102]];
+    for (const [ox, oy] of branches) {
+        px(ox, oy, 7, 1, '#7c5a3a');
+        px(ox + 1, oy - 1, 2, 1, '#16a34a'); px(ox + 4, oy - 1, 2, 1, '#22c55e');
+        px(ox + 2, oy + 1, 2, 1, '#15803d'); px(ox + 5, oy + 1, 2, 1, '#16a34a');
+    }
+    return bg;
+}
+
+// Foreground: partial stone pillars framing the scene (drawn over characters)
+function paintForeground() {
+    const fg = document.createElement('canvas');
+    fg.width = BG_W; fg.height = BG_H;
+    const f = fg.getContext('2d');
+    const px = (x, y, w, h, c) => { f.fillStyle = c; f.fillRect(x, y, w, h); };
+    for (const [base, flip] of [[0, false], [BG_W - 13, true]]) {
+        px(base, 0, 13, BG_H, '#78716c');                        // shaft
+        px(flip ? base + 11 : base, 0, 2, BG_H, '#57534e');      // outer shade
+        px(flip ? base : base + 10, 0, 3, BG_H, '#a8a29e');      // lit edge
+        for (let y = 6; y < BG_H; y += 10)                       // fluting
+            px(base + 4, y, 2, 6, flip ? '#57534e' : '#8a8078');
+        px(base - (flip ? 2 : 0), 0, 15, 5, '#a8a29e');          // capital
+        px(base - (flip ? 2 : 0), 5, 15, 2, '#57534e');
+        px(base, BG_H - 6, 13, 6, '#8a8078');                    // weathered base
+    }
+    return fg;
+}
+
+const bgCanvas = paintBackground();
+const fgCanvas = paintForeground();
+
+/* ============================================================
+ * Characters: procedural 32x48 pixel-grid sprites
+ * ============================================================ */
+const chars = PERSONAS.map(p => ({
+    p,
+    state: 'idle',            // idle | speaking | listening
+    phase: Math.random() * Math.PI * 2,
+    nextBlink: performance.now() + 1500 + Math.random() * 3000,
+    blinkUntil: 0,
+    nextNod: performance.now() + 3000 + Math.random() * 5000,
+    nodUntil: 0
+}));
+
+function drawCharacter(c, now) {
+    const s = c.p.sprite, u = c.p.scale;
+    const t = now / 1000;
+
+    // Breathing / idle weight shift (whole-body 1px bob)
+    const bob = Math.round(Math.sin(t * 1.7 + c.phase) * 0.6 + 0.5) - 1; // -1..0
+    const sway = c.state === 'idle' ? Math.round(Math.sin(t * 0.55 + c.phase)) : 0; // weight shift
+
+    // Blinking
+    if (now >= c.nextBlink) { c.blinkUntil = now + 130; c.nextBlink = now + 1800 + Math.random() * 3500; }
+    const blink = now < c.blinkUntil;
+
+    // Nods: synced to speech when speaking, occasional agreement when listening
+    let nod = 0;
+    if (c.state === 'speaking') {
+        nod = Math.sin(t * 5.5 + c.phase) > 0.55 ? 1 : 0;
+    } else if (c.state === 'listening') {
+        if (now >= c.nextNod) { c.nodUntil = now + 550; c.nextNod = now + 2500 + Math.random() * 5000; }
+        if (now < c.nodUntil) nod = Math.floor((now - (c.nodUntil - 550)) / 140) % 2;
+    }
+
+    // Idle head turns (subtle 1px eye/head shift)
+    const turn = c.state !== 'speaking' ? Math.round(Math.sin(t * 0.35 + c.phase * 2) * 0.8) : 0;
+
+    const slouch = s.slouch ? 2 : 0;
+    const X = c.p.x - 16 * u + sway * u * 0.5;
+    const Y = c.p.y - 48 * u + bob * u;
+    const px = (col, row, w, h, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(Math.round(X + col * u), Math.round(Y + row * u), Math.ceil(w * u), Math.ceil(h * u));
+    };
+
+    // Shadow
+    ctx.fillStyle = 'rgba(55, 65, 81, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(c.p.x, c.p.y - u, 12 * u, 2.4 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Staff (behind body)
+    if (s.staff) {
+        px(27, 8 + slouch, 2, 38 - slouch, '#8b5a2b');
+        px(26, 6 + slouch, 4, 3, '#6b4423'); // knob
+    }
+
+    // Legs & sandals
+    px(12, 38, 3, 6, s.skin); px(17, 38, 3, 6, s.skin);
+    px(11, 44, 5, 2, '#7c5a3a'); px(16, 44, 5, 2, '#7c5a3a');       // sandals
+    px(12, 42, 1, 2, '#5d4227'); px(18, 42, 1, 2, '#5d4227');       // straps
+
+    // Lower garment (skirt of toga/chiton/tunic)
+    px(9, 30, 14, 8, s.attire);
+    px(8, 36, 16, 2, s.attire);
+    px(9, 30, 2, 8, s.shade);                                       // fold shading
+    px(15, 31, 1, 7, s.shade);
+    px(20, 32, 1, 6, s.shade);
+    if (s.trim) px(8, 37, 16, 1, s.trim);                           // hem trim
+
+    // Torso
+    const sh = 16 + slouch;                                          // shoulder row
+    px(9, sh, 14, 30 - sh, s.attire);
+    px(7, sh, 3, 4, s.attire); px(22, sh, 3, 4, s.attire);           // shoulders
+    px(9, sh, 1, 30 - sh, s.shade);                                  // side shading
+    px(21, sh + 2, 2, 28 - sh, s.shade);
+    if (s.trim) px(12, sh, 8, 1, s.trim);                            // neckline trim
+    if (s.sash) for (let i = 0; i < 12; i++) px(10 + i, sh + 2 + i, 2, 2, s.sash); // diagonal sash
+
+    // Arms
+    const speakGesture = c.state === 'speaking' ? Math.floor(t * 2.2) % 3 : -1;
+    if (s.crossedArms) {
+        px(8, 21 + slouch, 16, 4, s.shade);                          // crossed forearms
+        px(8, 21 + slouch, 16, 1, s.attire);
+        px(8, 23 + slouch, 3, 2, s.skin); px(21, 23 + slouch, 3, 2, s.skin); // tucked hands
+    } else {
+        // Left arm always at side
+        px(6, sh + 1, 2, 6, s.attire); px(6, sh + 7, 2, 6, s.skin); px(6, sh + 13, 2, 2, s.skin);
+        if (speakGesture === 1) {
+            // Right arm raised, open palm (gesturing)
+            px(24, sh + 1, 2, 3, s.attire);
+            px(26, sh - 2, 2, 4, s.skin);
+            px(26, sh - 5, 3, 3, s.skin);                            // open hand
+        } else if (speakGesture === 2) {
+            // Right arm out, pointing
+            px(24, sh + 1, 2, 4, s.attire);
+            px(26, sh + 3, 4, 2, s.skin);
+            px(30, sh + 3, 2, 1, s.skin);                            // pointing finger
+        } else if (s.staff) {
+            // Gripping the staff
+            px(24, sh + 1, 2, 5, s.attire);
+            px(26, sh + 5, 2, 3, s.skin);                            // hand on staff
+        } else {
+            px(24, sh + 1, 2, 6, s.attire); px(24, sh + 7, 2, 6, s.skin); px(24, sh + 13, 2, 2, s.skin);
+        }
+    }
+
+    // Neck & head
+    const hy = slouch + nod;                                         // head vertical offset
+    px(14, 14 + hy, 4, 2, s.skin);
+    px(11 + turn * 0.5, 4 + hy, 10, 10, s.skin);
+    px(11 + turn * 0.5, 4 + hy, 1, 10, shadeOf(s.skin));             // face side shading
+
+    // Hair / bald
+    if (s.bald) {
+        px(11, 4 + hy, 10, 1, shadeOf(s.skin));                      // shiny pate
+        px(10, 7 + hy, 1, 4, s.beard || '#e7e5e4');                  // side wisps
+        px(21, 7 + hy, 1, 4, s.beard || '#e7e5e4');
+    } else if (s.hair && s.hair.style === 'wild') {
+        const hc = s.hair.color;
+        px(10, 2 + hy, 12, 3, hc);
+        px(8, 0 + hy, 3, 3, hc); px(13, -1 + hy, 3, 3, hc); px(18, 0 + hy, 4, 2, hc);
+        px(22, 1 + hy, 2, 3, hc); px(7, 3 + hy, 2, 2, hc);
+        px(9, 4 + hy, 2, 5, hc); px(21, 4 + hy, 2, 5, hc);           // wild sideburns
+    } else if (s.hair) {
+        const hc = s.hair.color;
+        px(10, 2 + hy, 12, 3, hc);
+        px(10, 4 + hy, 2, 4, hc); px(20, 4 + hy, 2, 4, hc);          // short sides
+    }
+
+    // Beard
+    if (s.beard) {
+        px(11, 11 + hy, 10, 3, s.beard);
+        px(12, 14 + hy, 8, 3, s.beard);
+        px(13, 17 + hy, 6, 1, s.beard);
+        px(14, 11 + hy, 4, 1, s.skin);                               // keep mouth area clear
+    }
+
+    // Brows
+    const browColor = s.beard ? '#d6d3d1' : (s.hair ? s.hair.color : '#44403c');
+    if (s.brow === 'frown') {
+        px(12 + turn, 6 + hy, 3, 1, browColor); px(17 + turn, 6 + hy, 3, 1, browColor);
+        px(14 + turn, 7 + hy, 1, 1, browColor); px(17 + turn, 7 + hy, 1, 1, browColor); // angled in
+    } else if (s.brow === 'stern') {
+        px(12 + turn, 7 + hy, 4, 1, browColor); px(16 + turn, 7 + hy, 4, 1, browColor);
+    } else {
+        px(12 + turn, 7 + hy, 3, 1, browColor); px(17 + turn, 7 + hy, 3, 1, browColor);
+    }
+
+    // Eyes
+    if (blink) {
+        px(13 + turn, 9 + hy, 2, 1, shadeOf(s.skin)); px(17 + turn, 9 + hy, 2, 1, shadeOf(s.skin));
+    } else {
+        px(13 + turn, 8 + hy, 2, 2, '#f8fafc'); px(17 + turn, 8 + hy, 2, 2, '#f8fafc');
+        px(13 + turn + (turn > 0 ? 1 : 0), 9 + hy, 1, 1, '#1c1917');
+        px(17 + turn + (turn > 0 ? 1 : 0), 9 + hy, 1, 1, '#1c1917');
+    }
+
+    // Mouth (2-3 frame speech animation)
+    const mouthColor = '#7f4436';
+    if (c.state === 'speaking') {
+        const frame = Math.floor(now / 130) % 3;
+        if (frame === 0) px(14, 11 + hy, 4, 1, mouthColor);
+        else if (frame === 1) px(14, 11 + hy, 4, 2, '#57302a');
+        else { px(15, 11 + hy, 2, 2, '#57302a'); px(14, 11 + hy, 4, 1, mouthColor); }
+    } else if (s.frownMouth) {
+        px(14, 12 + hy, 4, 1, mouthColor);
+        px(13, 11 + hy, 1, 1, mouthColor); px(18, 11 + hy, 1, 1, mouthColor);
+    } else if (s.smile) {
+        px(14, 11 + hy, 4, 1, mouthColor);
+        px(13, 10 + hy, 1, 1, mouthColor); px(18, 10 + hy, 1, 1, mouthColor);
+    } else {
+        px(14, 11 + hy, 4, 1, mouthColor);
+    }
+}
+
+function shadeOf(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, (n >> 16) - 40), g = Math.max(0, (n >> 8 & 255) - 40), bl = Math.max(0, (n & 255) - 40);
+    return `rgb(${r},${g},${bl})`;
+}
+
+/* ============================================================
+ * Render loop
+ * ============================================================ */
+ctx.imageSmoothingEnabled = false;
+
+function render(now) {
+    const t = now / 1000;
+    ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+
+    // Subtle camera sway (background drawn with 8px overscan)
+    const camX = Math.sin(t * 0.13) * 3, camY = Math.cos(t * 0.09) * 2;
+    ctx.drawImage(bgCanvas, -8 + camX, -8 + camY, SCENE_W + 16, SCENE_H + 16);
+
+    // Characters, farthest (smallest y) first
+    for (const c of [...chars].sort((a, b) => a.p.y - b.p.y)) drawCharacter(c, now);
+
+    // Foreground framing pillars, with stronger parallax
+    ctx.drawImage(fgCanvas, -12 + camX * 2, -12 + camY * 2, SCENE_W + 24, SCENE_H + 24);
+
+    requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+/* ============================================================
+ * Speech bubbles (DOM overlay, typing effect)
+ * ============================================================ */
+const activeBubbles = new Map(); // persona id -> element
+
+function removeBubble(id) {
+    const el = activeBubbles.get(id);
+    if (!el) return;
+    activeBubbles.delete(id);
+    el.classList.remove('visible');
+    el.classList.add('hiding');
+    setTimeout(() => el.remove(), 350);
+}
+
+function speak(persona, text) {
+    return new Promise(resolve => {
+        const c = chars.find(x => x.p === persona);
+        for (const other of chars) other.state = other === c ? 'speaking' : 'listening';
+        removeBubble(persona.id);
+
+        const el = document.createElement('div');
+        el.className = 'bubble';
+        el.style.borderColor = persona.color;
+        el.style.background = persona.color + 'cc'; // ~80% opacity
+        el.style.color = persona.textColor;
+
+        const name = document.createElement('span');
+        name.className = 'speaker-name';
+        name.textContent = persona.name;
+        const body = document.createElement('span');
+        const tail = document.createElement('div');
+        tail.className = 'tail';
+        tail.style.borderTopColor = persona.color;
+        el.append(name, body, tail);
+
+        // Anchor above the head, emerging from the mouth area
+        const headY = persona.y - 48 * persona.scale - 10;
+        // Clamp so the bubble (max-width 34%, centered on the speaker) stays on screen
+        el.style.left = Math.min(82, Math.max(18, persona.x / SCENE_W * 100)) + '%';
+        el.style.top = Math.max(2, headY / SCENE_H * 100) + '%';
+        bubbleLayer.appendChild(el);
+        activeBubbles.set(persona.id, el);
+        requestAnimationFrame(() => el.classList.add('visible'));
+
+        // Typing effect: character by character, slight pause between words
+        let i = 0;
+        const step = () => {
+            if (!activeBubbles.has(persona.id)) { finish(); return; } // was cleared (abort)
+            i++;
+            body.textContent = text.slice(0, i);
+            if (i < text.length) {
+                const pause = text[i - 1] === ' ' ? TYPE_SPEED_MS * 2.5 : TYPE_SPEED_MS;
+                setTimeout(step, pause);
+            } else {
+                setTimeout(finish, BUBBLE_LINGER_MS);
+            }
+        };
+        const finish = () => {
+            removeBubble(persona.id);
+            if (c) c.state = 'idle';
+            for (const other of chars) if (other.state === 'listening') other.state = 'idle';
+            resolve();
+        };
+        step();
+    });
+}
+
+function clearAllBubbles() {
+    for (const id of [...activeBubbles.keys()]) removeBubble(id);
+}
+
+/* ============================================================
+ * Status messages
+ * ============================================================ */
+let statusTimer = null;
+function setStatus(msg, { error = false, sticky = false } = {}) {
+    clearTimeout(statusTimer);
+    statusEl.textContent = msg;
+    statusEl.classList.toggle('error', error);
+    statusEl.classList.add('visible');
+    if (!sticky) statusTimer = setTimeout(() => statusEl.classList.remove('visible'), 6000);
+}
+
+/* ============================================================
+ * OpenRouter API
+ * ============================================================ */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function callAgent(persona, userContent, signal) {
+    const key = keyInput.value.trim();
+    const model = modelInput.value.trim() || DEFAULT_MODEL;
+    let lastErr;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await sleep(3000 * attempt);
+        try {
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                signal,
+                headers: {
+                    'Authorization': 'Bearer ' + key,
+                    'Content-Type': 'application/json',
+                    'X-Title': 'Socratic Approach'
+                },
+                body: JSON.stringify({
+                    model,
+                    max_tokens: 300,
+                    messages: [
+                        { role: 'system', content: persona.system },
+                        { role: 'user', content: userContent }
+                    ]
+                })
+            });
+            if (res.status === 429 || res.status >= 500) {
+                lastErr = new Error('OpenRouter is rate-limiting (HTTP ' + res.status + ')');
+                continue; // retry with backoff
+            }
+            if (!res.ok) {
+                const detail = await res.json().catch(() => null);
+                throw new Error((detail && detail.error && detail.error.message) ||
+                                'OpenRouter error (HTTP ' + res.status + ')');
+            }
+            const data = await res.json();
+            const text = data.choices && data.choices[0] &&
+                         data.choices[0].message && data.choices[0].message.content;
+            if (!text || !text.trim()) { lastErr = new Error('Empty response from model'); continue; }
+            return text.trim();
+        } catch (e) {
+            if (e.name === 'AbortError') throw e;
+            lastErr = e;
+        }
+    }
+    throw lastErr || new Error('OpenRouter request failed');
+}
+
+/* ============================================================
+ * Debate orchestration
+ * ============================================================ */
+function buildPrompt(topic, transcript, extra) {
+    let out = 'The topic under debate: "' + topic + '"\n\n';
+    if (transcript.length) {
+        out += 'Transcript so far:\n';
+        for (const turn of transcript) out += turn.speaker + ': ' + turn.text + '\n';
+        out += '\n';
+    }
+    out += extra || 'It is now your turn to speak.';
+    return out;
+}
+
+const VERDICT_RE = /\bVERDICT:\s*(CONSENSUS|CONTINUE)\b/i;
+
+let controller = null;
+
+async function runDebate(topic) {
+    const transcript = [];
+    const debaters = PERSONAS.filter(p => p.id !== 'judge');
+    const judge = PERSONAS.find(p => p.id === 'judge');
+    const signal = controller.signal;
+    let consensus = false;
+
+    for (let round = 1; round <= MAX_TURNS && !consensus; round++) {
+        for (const p of debaters) {
+            if (signal.aborted) return;
+            setStatus(p.name + ' is thinking… (round ' + round + '/' + MAX_TURNS + ')', { sticky: true });
+            const text = await callAgent(p, buildPrompt(topic, transcript), signal);
+            if (signal.aborted) return;
+            transcript.push({ speaker: p.name, text });
+            await speak(p, text);
+            await sleep(API_DELAY_MS);
+        }
+
+        if (signal.aborted) return;
+        setStatus('The Judge is deliberating…', { sticky: true });
+        const evalPrompt = buildPrompt(topic, transcript,
+            'It is now your turn to speak. Briefly assess the round, then end your reply with a ' +
+            'final line reading exactly "VERDICT: CONSENSUS" if the group has substantially ' +
+            'converged, or "VERDICT: CONTINUE" if the debate should go on.');
+        const raw = await callAgent(judge, evalPrompt, signal);
+        if (signal.aborted) return;
+        const m = raw.match(VERDICT_RE);
+        consensus = !!(m && m[1].toUpperCase() === 'CONSENSUS');
+        const clean = raw.replace(VERDICT_RE, '').replace(/\n{2,}/g, '\n').trim();
+        transcript.push({ speaker: judge.name, text: clean });
+        await speak(judge, clean);
+        await sleep(API_DELAY_MS);
+    }
+
+    if (signal.aborted) return;
+    setStatus('The Judge prepares the final verdict…', { sticky: true });
+    const summary = await callAgent(judge, buildPrompt(topic, transcript,
+        'The debate has ended. Deliver the final verdict: name the strongest arguments heard and ' +
+        'state the group\'s consensus position on the topic in at most five sentences.'), signal);
+    if (signal.aborted) return;
+    await speak(judge, summary);
+    setStatus(consensus ? 'Consensus reached. The agora falls quiet.'
+                        : 'No full consensus — the Judge has ruled.');
+}
+
+/* ============================================================
+ * UI wiring
+ * ============================================================ */
+const topicInput = document.getElementById('topic-input');
+const keyInput = document.getElementById('key-input');
+const modelInput = document.getElementById('model-input');
+const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
+
+modelInput.value = localStorage.getItem('sa_model') || DEFAULT_MODEL;
+keyInput.value = localStorage.getItem('sa_or_key') || '';
+
+function setRunning(running) {
+    startBtn.disabled = running;
+    topicInput.disabled = running;
+    stopBtn.style.display = running ? 'inline-block' : 'none';
+}
+
+startBtn.addEventListener('click', async () => {
+    const topic = topicInput.value.trim();
+    if (!topic) { setStatus('Offer the assembly a question first.', { error: true }); topicInput.focus(); return; }
+    if (!keyInput.value.trim()) { setStatus('An OpenRouter API key is required.', { error: true }); keyInput.focus(); return; }
+
+    localStorage.setItem('sa_or_key', keyInput.value.trim());
+    localStorage.setItem('sa_model', modelInput.value.trim() || DEFAULT_MODEL);
+
+    controller = new AbortController();
+    setRunning(true);
+    setStatus('The philosophers gather…', { sticky: true });
+    try {
+        await runDebate(topic);
+    } catch (e) {
+        if (e.name !== 'AbortError') setStatus(e.message || 'The debate faltered.', { error: true });
+    } finally {
+        controller = null;
+        clearAllBubbles();
+        for (const c of chars) c.state = 'idle';
+        setRunning(false);
+    }
+});
+
+stopBtn.addEventListener('click', () => {
+    if (controller) controller.abort();
+    clearAllBubbles();
+    setStatus('The debate was adjourned.');
+});
+
+topicInput.addEventListener('keydown', e => { if (e.key === 'Enter') startBtn.click(); });
+
+setStatus('Welcome to the agora. Pose a question to begin.');
+</script>
+</body>
+</html>

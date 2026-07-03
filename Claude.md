@@ -6,7 +6,7 @@ This project implements a multi-agent LLM debate system with a unique pixel art 
 ## Key Files
 - index.html - Main application with canvas rendering and debate logic
 - README.md - Setup instructions and documentation
-- assets/ - Pixel art sprites and background elements (to be created)
+- Sprites and background art are drawn procedurally on the canvas (no external asset files)
 
 ## Implementation Notes
 
@@ -36,9 +36,9 @@ Each agent has a carefully crafted system prompt to maintain its role:
 ### Conversation Flow
 1. User submits a question/idea
 2. System initializes debate with all six agents
-3. Each turn, all agents respond simultaneously
-4. Responses displayed as speech bubbles
-5. After MAX_TURNS or consensus detection, generate final summary
+3. Each round, the five debaters respond in sequence (each sees the transcript so far, so they can react to one another); the Judge closes the round and checks for consensus
+4. Responses displayed as speech bubbles with a typing effect
+5. After MAX_TURNS or consensus detection, the Judge generates a final summary
 
 ### Animation System
 - Character sprites with multiple animation frames

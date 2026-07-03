@@ -1,9 +1,20 @@
-# socratic-approach
 # Socratic Approach: Multi-Agent LLM Debate System
 
 ## Overview
 
 A web application that enables users to submit questions, ideas, or beliefs, which are then debated by six distinct LLM personas via OpenRouter's free tier. The system orchestrates a structured conversation that progresses toward consensus.
+
+## Getting Started
+
+1. Get a free API key from [OpenRouter](https://openrouter.ai/keys).
+2. Open `index.html` in a modern browser — no build step or server is required (though you can serve it locally with `python3 -m http.server` if you prefer).
+3. Paste your API key into the key field (it is stored only in your browser's localStorage).
+4. Optionally change the model — any OpenRouter model ID works; the default is a free-tier model.
+5. Type a question, idea, or belief and press **Begin Debate**.
+
+The six philosophers will debate the topic in rounds. After each round the Judge deliberates; the debate ends when the Judge declares consensus or the maximum number of rounds is reached, at which point the Judge delivers a final verdict.
+
+> **Security note:** the API key is used directly from the browser, so it is visible to anyone with access to the page session. This is fine for personal use with a free-tier key; for production, proxy the API calls through a backend that holds the key.
 
 ## Visual Design Specification
 
@@ -157,67 +168,20 @@ The interface combines low-fi pixel art visuals with hyper-realistic human movem
 
 ## Implementation
 
-### 1. HTML Structure
+The entire application lives in a single `index.html` file with no dependencies beyond the "Press Start 2P" web font and the OpenRouter API.
 
-```html
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socratic Approach - Multi-Agent Debate</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #2563eb;
-            --secondary: #64748b;
-            --background: #1e293b;
-            --surface: #334155;
-            --text: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border: #475569;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            font-family: 'Press Start 2P', cursive;
-            background-color: var(--background);
-            color: var(--text);
-            line-height: 1.6;
-            padding: 0;
-            margin: 0;
-            min-height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #game-container {
-            flex: 1;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #canvas-container {
-            flex: 1;
-            position: relative;
-        }
-        
-        #debate-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, #1e293b 0%, #334155 50%, #475569 100%);
-        }
-        
-        #input-section {
-            background
+### File Structure
+- `index.html` — markup, styles, and all JavaScript: canvas rendering, animation, speech bubbles, and debate orchestration
+- All sprites and background art are drawn procedurally on the canvas at pixel-art resolution (no external image assets)
+
+### How It Works
+1. The scene is rendered to a 960x540 canvas. Background layers (sky, sea, islands, temple, ruins, olive trees, mosaic floor) are painted once to an offscreen buffer at low resolution and upscaled with image smoothing disabled for a crisp pixel look.
+2. The six characters are drawn each frame from procedural 32x48 pixel-grid sprites, with breathing, blinking, nodding, mouth, and gesture animation driven by `requestAnimationFrame`.
+3. When a debate starts, the orchestrator runs up to `MAX_TURNS` rounds. In each round the five debaters speak in sequence (each sees the transcript so far), then the Judge deliberates and issues a `VERDICT: CONSENSUS` or `VERDICT: CONTINUE` marker. On consensus or after the final round, the Judge delivers a closing verdict.
+4. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
+
+### Configuration
+Tunable constants near the top of the script in `index.html`:
+- `DEFAULT_MODEL` — OpenRouter model ID (defaults to a free-tier model; can also be changed in the UI)
+- `MAX_TURNS` — maximum debate rounds before the Judge must rule (default 3)
+- `API_DELAY_MS` — pause between API calls to respect free-tier rate limits
