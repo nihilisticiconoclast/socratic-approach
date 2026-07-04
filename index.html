@@ -263,6 +263,7 @@ const SCENE_W = 960, SCENE_H = 540;
  * painterly rendering quantized onto a pixel grid.
  * ============================================================ */
 const LO_W = 320, LO_H = 180;
+const FACING_K = 1.22, BACK_K = 1.15;   // figure scale: fill the frame like the reference art
 const HOR = 200, WALL_T = 228, FLOOR_Y = 276;   // horizon / parapet / floor (hi-res px)
 
 /* ---------- small painting helpers ---------- */
@@ -336,7 +337,7 @@ const PERSONAS = [
             'Greek philosophers. Whatever position currently dominates the discussion, argue ' +
             'the opposite, sharply but honestly, to test the strength of the idea. ' + STYLE_RULES,
         pose: 'facing', x: 292, fy: 470, lean: -0.035,
-        sprite: { skin: '#c98850', cloth: '#b5443f', trim: '#d9a441',
+        sprite: { skin: '#c98850', cloth: '#eadfc6', drape: '#b5443f', trim: '#d9a441',
                   hair: { color: '#3a2a1e', style: 'short' }, crossedArms: true, brow: 'frown' }
     },
     {
@@ -356,7 +357,7 @@ const PERSONAS = [
             'possibilities, question constraints, and offer unconventional angles no one else ' +
             'has considered. ' + STYLE_RULES,
         pose: 'facing', x: 588, fy: 464, lean: 0.045,
-        sprite: { skin: '#8a5a36', cloth: '#7d5fa8',
+        sprite: { skin: '#8a5a36', cloth: '#e8e0d0', drape: '#7d5fa8',
                   hair: { color: '#45306b', style: 'wild' }, brow: 'calm' }
     },
     {
@@ -365,7 +366,7 @@ const PERSONAS = [
             'philosophers. Be fair and decisive: weigh the arguments made so far, name the ' +
             'strongest points on each side, and guide the group toward consensus. ' + STYLE_RULES,
         pose: 'facing', x: 712, fy: 476, lean: -0.02,
-        sprite: { skin: '#d9a066', cloth: '#d99a3e', trim: '#f5efe0',
+        sprite: { skin: '#d9a066', cloth: '#f0e6cc', drape: '#d08a2e', trim: '#d08a2e', laurel: '#d4a437',
                   hair: { color: '#4a4440', style: 'short' }, brow: 'stern' }
     },
     {
@@ -375,7 +376,7 @@ const PERSONAS = [
             'speakers, reconcile opposing views, and restate the emerging shared position. ' +
             STYLE_RULES,
         pose: 'back', x: 855, side: -1,
-        sprite: { skin: '#c98850', cloth: '#5f8760', wrap: '#8fae8a', hair: '#35302a' }
+        sprite: { skin: '#c98850', cloth: '#e3dabf', wrap: '#5f8760', hair: '#35302a' }
     }
 ];
 
@@ -388,10 +389,10 @@ for (const p of PERSONAS) {
     if (p.pose === 'facing') {
         p.lapY = p.fy - 118; p.hipY = p.lapY + 26;
         p.shY = p.lapY - 78; p.headC = p.shY - 44;
-        p.bubble = { x: p.x, y: p.headC - 40 };
+        p.bubble = { x: p.x, y: p.fy - (p.fy - (p.headC - 40)) * FACING_K };
     } else {
         p.headC = 130 + (s.slouch ? 14 : 0);
-        p.bubble = { x: p.x, y: p.headC - 52 };
+        p.bubble = { x: p.x, y: SCENE_H - (SCENE_H - (p.headC - 52)) * BACK_K };
     }
 }
 
@@ -652,14 +653,14 @@ function drawFacing(c, now) {
     const sk = s.skinR, cl = s.clothR;
 
     g.save();
-    g.translate(cx, fy); g.rotate(p.lean || 0); g.translate(-cx, -fy);
+    g.translate(cx, fy); g.rotate(p.lean || 0); g.scale(FACING_K, FACING_K); g.translate(-cx, -fy);
 
     softShadow(g, cx, fy - 2, 84, 15, 0.4);
 
     // Marble bench
-    g.fillStyle = lgrad(g, 0, hip + 2, 0, hip + 42, [[0, '#d8c69e'], [1, '#b39e74']]);
+    g.fillStyle = lgrad(g, 0, hip + 2, 0, hip + 42, [[0, '#cfbd94'], [1, '#a8946c']]);
     g.fillRect(cx - 64, hip + 2, 128, 40);
-    g.fillStyle = '#f0e7d2'; g.fillRect(cx - 64, hip - 7, 128, 9);
+    g.fillStyle = '#e6dabd'; g.fillRect(cx - 64, hip - 7, 128, 9);
     g.fillStyle = '#9b8560'; g.fillRect(cx - 64, hip + 2, 128, 3);
     g.fillStyle = '#b39e74'; g.fillRect(cx - 58, hip + 42, 15, fy - hip - 44);
     g.fillStyle = '#a08a5f'; g.fillRect(cx + 43, hip + 42, 15, fy - hip - 44);
@@ -719,6 +720,7 @@ function drawFacing(c, now) {
     g.fill();
     flow(g, [[cx - 12, shY + 18], [cx - 15, (shY + ly) / 2], [cx - 12, ly]], 2.6, 'rgba(0,0,0,0.13)');
     flow(g, [[cx + 8, shY + 22], [cx + 11, (shY + ly) / 2 + 6], [cx + 9, ly]], 2.6, 'rgba(0,0,0,0.13)');
+    flow(g, [[cx - 24, shY + 14], [cx - 27, (shY + ly) / 2], [cx - 24, ly - 4]], 3, 'rgba(255,255,248,0.18)');
     // Chest opening
     g.beginPath(); g.moveTo(cx - 10, shY + 2); g.lineTo(cx + 10, shY + 2); g.lineTo(cx, shY + 18); g.closePath();
     g.fillStyle = sk.b; g.fill();
@@ -733,12 +735,14 @@ function drawFacing(c, now) {
     // Himation drape (Socrates)
     if (s.drape) {
         const dr = s.drapeR;
-        flow(g, [[cx + 32, shY - 2], [cx + 4, shY + 34], [cx - 28, ly + 6]], 23, dr.b);
-        flow(g, [[cx + 30, shY - 4], [cx + 2, shY + 30], [cx - 28, ly + 2]], 6, dr.l);
-        flow(g, [[cx + 34, shY + 4], [cx + 8, shY + 38], [cx - 26, ly + 12]], 5, dr.d);
-        ell(g, cx + 32, shY + 2, 14, 10, dr.b);
-        flow(g, [[cx - 28, ly + 6], [cx - 40, ly + 16], [cx - 44, hip + 16]], 16, dr.b);
-        flow(g, [[cx - 30, ly + 8], [cx - 42, ly + 20], [cx - 45, hip + 12]], 4, dr.s);
+        flow(g, [[cx + 32, shY - 2], [cx + 4, shY + 34], [cx - 28, ly + 6]], 32, dr.b);
+        flow(g, [[cx + 29, shY - 6], [cx + 1, shY + 28], [cx - 29, ly]], 6, 'rgba(255,255,250,0.28)');
+        flow(g, [[cx + 35, shY + 6], [cx + 9, shY + 40], [cx - 25, ly + 14]], 6, 'rgba(0,0,0,0.22)');
+        flow(g, [[cx + 32, shY], [cx + 5, shY + 33], [cx - 27, ly + 7]], 2.5, 'rgba(0,0,0,0.14)');
+        ell(g, cx + 33, shY + 2, 17, 13, dr.b);
+        ell(g, cx + 31, shY - 3, 11, 6, shift(s.drape, 18));
+        flow(g, [[cx - 28, ly + 6], [cx - 40, ly + 16], [cx - 44, hip + 18]], 22, dr.b);
+        flow(g, [[cx - 30, ly + 8], [cx - 42, ly + 20], [cx - 46, hip + 14]], 5, dr.s);
     }
 
     // Shoulders
@@ -814,6 +818,21 @@ function drawFacing(c, now) {
         g.fillRect(cx + tn - 18.5, hc - 8, 4, 12); g.fillRect(cx + tn + 14.5, hc - 8, 4, 12);
         g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 2.5;
         g.beginPath(); g.arc(cx + tn - 3, hc - 10, 11, -2.7, -1.5); g.stroke();
+        for (let ci = 0; ci < 5; ci++) {
+            const [t0, t1, t2] = c.tufts[ci];
+            const an = Math.PI * (0.15 + 0.7 * t0);
+            ell(g, cx + tn + Math.cos(an) * 17, hc - 8 - Math.sin(an) * 12,
+                3.5 + t1 * 2.5, 3 + t2 * 2, hcol);
+        }
+    }
+
+    // Gold laurel wreath (Judge)
+    if (s.laurel) {
+        for (let li = 0; li < 6; li++) {
+            const an = Math.PI * (0.12 + 0.152 * li);
+            ell(g, cx + tn + Math.cos(an) * 18.5, hc - 5 - Math.sin(an) * 13,
+                3.4, 1.8, s.laurel, Math.PI / 2 - an);
+        }
     }
 
     // Beard (Socrates)
@@ -879,6 +898,9 @@ function drawBack(c, now) {
     const hcY = p.headC + a.bob + a.nod;
     const shY = 205 + (s.slouch ? 12 : 0) + a.bob;
     const sk = s.skinR, cl = s.clothR;
+
+    g.save();
+    g.translate(cx, SCENE_H); g.scale(BACK_K, BACK_K); g.translate(-cx, -SCENE_H);
 
     // Torso silhouette
     g.beginPath();
@@ -970,6 +992,8 @@ function drawBack(c, now) {
         if (a.mouthFrame === 1) ell(g, cx + side * 30, hcY + 11, 3.4, 2.6, '#57302a');
         else cap(g, [[cx + side * 27, hcY + 11], [cx + side * 33, hcY + 10]], 2, '#7f4436');
     }
+
+    g.restore();
 }
 
 /* ============================================================
@@ -988,6 +1012,10 @@ function render(now) {
     for (const c of facing) drawFacing(c, now);
     for (const c of chars) if (c.p.pose === 'back') drawBack(c, now);
     hictx.drawImage(fgHi, -10 + camX * 2, -10 + camY * 2, SCENE_W + 20, SCENE_H + 20);
+    const vg = hictx.createRadialGradient(480, 240, 260, 480, 240, 640);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(70,46,20,0.18)');
+    hictx.fillStyle = vg; hictx.fillRect(0, 0, SCENE_W, SCENE_H);
 
     // 2) Downsample to the pixel grid
     loctx.imageSmoothingEnabled = true;

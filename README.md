@@ -40,11 +40,11 @@ Animation is unaffected by the pipeline: the smooth scene is repainted every fra
 | Persona | Signature color | Worn as |
 |---------|-----------------|---------|
 | Socrates | Blue | Himation drape over a cream toga; white beard, bald, staff |
-| Contrarian | Red | Chiton with gold trim; arms crossed |
-| Free Thinker | Purple | Toga; wild hair |
-| Grump | Gray | Plain tunic; slouched posture |
-| Synthesizer | Green | Himation band |
-| Judge | Orange | Toga with light trim |
+| Contrarian | Red | Himation drape over a cream chiton, gold-trimmed hem; arms crossed |
+| Free Thinker | Purple | Himation drape over a cream toga; wild hair |
+| Grump | Gray | Plain woollen cloak; slouched posture |
+| Synthesizer | Green | Himation band over a cream robe |
+| Judge | Orange | Himation drape and hem trim over a cream toga; gold laurel wreath |
 
 **Scenery** — an open-air agora terrace: marble columns framing the view, a stone parapet, the Acropolis with its temple on a headland, cypress and olive trees, the azure Mediterranean sea and sky, a mosaic medallion set into the stone floor, and props such as an amphora and a discarded scroll.
 
