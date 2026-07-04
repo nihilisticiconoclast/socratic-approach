@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
         return res.end(JSON.stringify({ error: { message: 'OPENROUTER_API_KEY is not configured on the server' } }));
     }
     try {
-        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const r = await fetch((process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai') + '/api/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + key,

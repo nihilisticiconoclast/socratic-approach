@@ -19,6 +19,7 @@ let pg = null;
 try { pg = require('pg'); } catch { /* optional locally */ }
 
 const KEY = process.env.OPENROUTER_API_KEY || '';
+const UPSTREAM = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai';
 const DB_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = __dirname;
@@ -84,7 +85,7 @@ http.createServer(async (req, res) => {
         if (url === '/api/chat' && req.method === 'POST') {
             if (!KEY) return send(res, 503, { error: { message: 'OPENROUTER_API_KEY is not configured on the server' } });
             const body = await readBody(req);
-            const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            const r = await fetch(UPSTREAM + '/api/v1/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'X-Title': 'Socratic Approach' },
                 body: JSON.stringify(body)
