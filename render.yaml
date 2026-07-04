@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: socratic-backend
+    runtime: node
+    repo: https://github.com/nihilisticiconoclast/socratic-approach
+    branch: main
+    rootDir: .
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://nihilisticiconoclast.github.io
+      - key: PORT
+        value: "3000"
+    autoDeploy: true
