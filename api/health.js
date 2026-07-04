@@ -1,5 +1,7 @@
 'use strict';
+const { applyCors } = require('./_cors');
 module.exports = (req, res) => {
+    if (applyCors(req, res)) return;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({
         proxy: Boolean(process.env.OPENROUTER_API_KEY),

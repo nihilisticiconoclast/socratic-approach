@@ -61,8 +61,22 @@ const readBody = req => new Promise((resolve, reject) => {
     req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch (e) { reject(e); } });
 });
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '';
+
 http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
+    if (CORS_ORIGIN && url.startsWith('/api/')) {
+        res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+        res.setHeader('Vary', 'Origin');
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, {
+                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Max-Age': '86400'
+            });
+            return res.end();
+        }
+    }
     try {
         if (url === '/api/health') {
             return send(res, 200, { proxy: Boolean(KEY), db: Boolean(DB_URL) });

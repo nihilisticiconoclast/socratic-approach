@@ -1,7 +1,9 @@
 'use strict';
+const { applyCors } = require('./_cors');
 /* Proxies chat completions to OpenRouter with the server-held key.
  * The browser never sees or sends any credential. */
 module.exports = async (req, res) => {
+    if (applyCors(req, res)) return;
     if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
     const key = process.env.OPENROUTER_API_KEY;
     res.setHeader('Content-Type', 'application/json');

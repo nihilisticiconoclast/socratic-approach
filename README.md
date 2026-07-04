@@ -19,11 +19,11 @@ The Neon chronicle is **internal storage only** — reference data and prompt au
 
 ### Deploy (one time)
 
-The site needs a host that can run the `api/` functions — GitHub Pages cannot (it is static-only, and no website can read GitHub Actions secrets). Vercel's free tier works out of the box:
+The app needs a host that can run server code — GitHub Pages alone cannot (it is static-only, and no website can read GitHub Actions secrets). Whichever host you choose, set two environment variables in its dashboard: `OPENROUTER_API_KEY` and `NEON_DATABASE_URL` (or `DATABASE_URL`) — see `.env.example`.
 
-1. Go to vercel.com → sign in with GitHub → **Import** the `socratic-approach` repository.
-2. In the import screen, add two Environment Variables: `OPENROUTER_API_KEY` and `DATABASE_URL` (your Neon connection string). These must be entered in the host's settings — secrets stored in GitHub are only visible to GitHub Actions, not to any website.
-3. Deploy. Done — visitors just type a question and watch.
+**Simplest — one host serves everything.** Deploy configs are included for [Render](https://render.com) (`render.yaml`), [Railway](https://railway.app) (`railway.json`), and [Fly.io](https://fly.io) (`fly.toml`); all run `node server.js`, which serves the page *and* the API from one URL. Vercel also works out of the box (the `api/` folder deploys as serverless functions). Use the deployment URL as your site and you are done — no CORS, no extra config.
+
+**Optional split — GitHub Pages frontend + backend host.** If you prefer serving the page from GitHub Pages: deploy the backend as above, set `CORS_ORIGIN` on the backend to your Pages origin (the included configs already default it to `https://nihilisticiconoclast.github.io`), and put the backend's URL in the `api-base` meta tag at the top of `index.html`.
 
 ### Run locally
 

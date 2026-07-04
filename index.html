@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Socratic Approach - Multi-Agent Debate</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<!-- Backend location. Leave content="" when the page is served by its own
+     backend (server.js / the api functions). If the page is hosted separately
+     (e.g. GitHub Pages), put the backend's URL here, e.g.
+     content="https://socratic-backend.onrender.com" (and set CORS_ORIGIN on
+     the backend to this page's origin). -->
+<meta name="api-base" content="">
 <style>
     :root {
         --background: #2a2119;
@@ -247,6 +253,9 @@ const TYPE_SPEED_MS = 22;     // typing effect, per character
 const BUBBLE_LINGER_MS = 1000;
 
 const SCENE_W = 960, SCENE_H = 540;
+
+// Backend base URL ('' = same origin); see the api-base meta tag in <head>
+const API_BASE = ((document.querySelector('meta[name="api-base"]') || {}).content || '').replace(/\/+$/, '');
 
 /* ============================================================
  * Rendering pipeline
@@ -1133,7 +1142,7 @@ async function callAgent(persona, userContent, signal) {
     for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await sleep(3000 * attempt);
         try {
-            const res = await fetch('/api/chat', {
+            const res = await fetch(API_BASE + '/api/chat', {
                 method: 'POST',
                 signal,
                 headers: { 'Content-Type': 'application/json' },
@@ -1204,7 +1213,7 @@ async function runDebate(topic) {
     // Past debates inform new ones (internal chronicle, held server-side)
     let memory = [];
     try {
-        const h = await fetch('/api/history', { signal }).then(r => r.ok ? r.json() : null);
+        const h = await fetch(API_BASE + '/api/history', { signal }).then(r => r.ok ? r.json() : null);
         memory = (h && h.debates) || [];
     } catch { /* history is best-effort */ }
 
@@ -1244,7 +1253,7 @@ async function runDebate(topic) {
     await speak(judge, summary);
 
     // Chronicle the debate server-side (fire-and-forget; internal only)
-    fetch('/api/record', {
+    fetch(API_BASE + '/api/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1269,7 +1278,7 @@ modelInput.value = localStorage.getItem('sa_model') || DEFAULT_MODEL;
 
 // The page requires its server (the api/ functions, or server.js locally).
 let SERVER_OK = false;
-fetch('/api/health').then(r => r.ok ? r.json() : null).then(d => {
+fetch(API_BASE + '/api/health').then(r => r.ok ? r.json() : null).then(d => {
     SERVER_OK = Boolean(d && d.proxy);
     if (d && !d.proxy)
         setStatus('The server is running but OPENROUTER_API_KEY is not configured.', { error: true, sticky: true });

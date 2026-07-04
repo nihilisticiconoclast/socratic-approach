@@ -1,9 +1,11 @@
 'use strict';
+const { applyCors } = require('./_cors');
 /* Returns recent questions and verdicts. Consumed only by the debate
  * orchestrator to give the philosophers memory of past symposia. */
 const { withDb } = require('./_db');
 
 module.exports = async (req, res) => {
+    if (applyCors(req, res)) return;
     res.setHeader('Content-Type', 'application/json');
     try {
         const rows = await withDb(db =>
