@@ -4,26 +4,24 @@
 
 A web application that enables users to submit questions, ideas, or beliefs, which are then debated by six distinct LLM personas via OpenRouter's free tier. The system orchestrates a structured conversation that progresses toward consensus.
 
-## Getting Started
+## How a Question Becomes a Debate (production flow — no keys in the browser)
 
-First, get a free API key from [OpenRouter](https://openrouter.ai/keys). Then run the app one of two ways:
+1. On the site, type a question and press **Begin Debate**. With no key present, the page opens a prefilled GitHub issue — confirming that issue is the submission.
+2. The **Debate** workflow (`.github/workflows/debate.yml`) triggers on the issue, runs the six-persona debate through OpenRouter using the repository secret, and augments every prompt with recent questions and verdicts pulled from the database, so past debates inform new ones.
+3. The result is stored in **Neon Postgres** (`debates` table — created automatically on first run), posted back to the issue as a comment, and published to `debates.json`.
+4. The site's **Chronicle** dropdown lists every published debate and replays any of them in the scene with full animation.
 
-**Option A — with the bundled server (recommended; the page never asks for a key):**
+### One-time setup (manual)
 
-```sh
-OPENROUTER_API_KEY=sk-or-... node server.js
-# → http://localhost:3000
-```
+- **Secrets** — repo Settings → Secrets and variables → Actions: `OPENROUTER_API_KEY`, and your Neon connection string as `DATABASE_URL` (the name `NEON_DATABASE_URL` also works).
+- **Workflow permissions** — Settings → Actions → General → Workflow permissions → *Read and write permissions* (needed to publish `debates.json` and comment on issues).
+- **GitHub Pages** — Settings → Pages → Deploy from a branch → `main`, `/ (root)`.
+- **Smoke test** — Actions tab → *Debate* → *Run workflow* with any question.
 
-The server holds the key and proxies the LLM calls; the page detects this and hides the key field. Set the key as an environment variable wherever the server runs (your shell, a hosting platform's secrets, etc.).
+### Local / dev modes
 
-**Option B — as a plain static file:**
-
-Open `index.html` directly in a browser and paste your API key into the key field (it is stored only in your browser's localStorage). This exists because a static page running in a browser **cannot read server-side secrets** — secrets stored in a platform (hosting dashboards, databases, environment settings) are only visible to server-side code like `server.js`.
-
-Either way: optionally change the model (any OpenRouter model ID works; the default is free-tier), then type a question, idea, or belief and press **Begin Debate**. The six philosophers debate in rounds; after each round the Judge deliberates, and the debate ends when the Judge declares consensus or the round limit is reached, at which point the Judge delivers a final verdict.
-
-> **Security note:** in Option B the API key is used directly from the browser, so it is visible to anyone with access to the page session — fine for personal use with a free-tier key. Use Option A (or any backend proxy) for anything shared or production.
+- `OPENROUTER_API_KEY=sk-or-... node server.js` → http://localhost:3000 — live in-browser debate; the page detects the server-held key and never asks for one.
+- Open `index.html` directly and paste a key into the field → live in-browser debate (key stays in your browser's localStorage). A static page cannot read GitHub or platform secrets — that is why the production flow runs the debate in Actions instead.
 
 ## Visual Design
 
@@ -93,8 +91,11 @@ Animation is unaffected by the pipeline: the smooth scene is repainted every fra
 The entire application lives in a single `index.html` file with no dependencies beyond the "Press Start 2P" web font and the OpenRouter API.
 
 ### File Structure
-- `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, and debate orchestration
-- `server.js` — optional zero-dependency Node server: serves the app and proxies OpenRouter calls with a server-held `OPENROUTER_API_KEY`, so the browser never handles the key
+- `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, debate orchestration, and the Chronicle replayer
+- `scripts/debate.js` — the debate runner executed by GitHub Actions: OpenRouter calls, Neon persistence, history augmentation, issue reporting
+- `.github/workflows/debate.yml` — triggers a debate for every `debate`-labeled issue (or manual dispatch) and publishes `debates.json`
+- `debates.json` — the published Chronicle consumed by the site
+- `server.js` — optional zero-dependency Node server for local live debates with a server-held `OPENROUTER_API_KEY`
 - All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then pixelated by the nearest-neighbour workflow described above
 
 ### How It Works

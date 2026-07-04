@@ -160,7 +160,7 @@
         text-transform: uppercase;
     }
 
-    .field input {
+    .field input, .field select {
         font-family: 'Press Start 2P', monospace;
         font-size: 10px;
         color: var(--parchment-ink);
@@ -173,7 +173,7 @@
         caret-color: var(--parchment-ink);
     }
 
-    .field input:focus { border-color: var(--warning); }
+    .field input:focus, .field select:focus { border-color: var(--warning); }
 
     .buttons {
         display: flex;
@@ -231,8 +231,13 @@
             <label for="model-input">Model</label>
             <input id="model-input" type="text" spellcheck="false">
         </div>
+        <div class="field">
+            <label for="chronicle-select">Chronicle (past debates)</label>
+            <select id="chronicle-select"><option>Loading&hellip;</option></select>
+        </div>
         <div class="buttons">
             <button id="start-btn">Begin Debate</button>
+            <button id="replay-btn" disabled>Replay</button>
             <button id="stop-btn">Stop</button>
         </div>
     </div>
@@ -1248,6 +1253,8 @@ const keyInput = document.getElementById('key-input');
 const modelInput = document.getElementById('model-input');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
+const chronicleSelect = document.getElementById('chronicle-select');
+const replayBtn = document.getElementById('replay-btn');
 
 modelInput.value = localStorage.getItem('sa_model') || DEFAULT_MODEL;
 keyInput.value = localStorage.getItem('sa_or_key') || '';
@@ -1266,12 +1273,23 @@ function setRunning(running) {
     startBtn.disabled = running;
     topicInput.disabled = running;
     stopBtn.style.display = running ? 'inline-block' : 'none';
+    replayBtn.disabled = running || !CHRONICLE.length;
+    chronicleSelect.disabled = running;
 }
 
 startBtn.addEventListener('click', async () => {
     const topic = topicInput.value.trim();
     if (!topic) { setStatus('Offer the assembly a question first.', { error: true }); topicInput.focus(); return; }
-    if (!PROXY_MODE && !keyInput.value.trim()) { setStatus('An OpenRouter API key is required.', { error: true }); keyInput.focus(); return; }
+    if (!PROXY_MODE && !keyInput.value.trim()) {
+        // No key anywhere: hand the question to the agora. The debate runs in
+        // GitHub Actions with the repository's secrets and, once finished,
+        // appears in the Chronicle - no key ever touches the browser.
+        const url = 'https://github.com/nihilisticiconoclast/socratic-approach/issues/new' +
+            '?labels=debate&title=' + encodeURIComponent(topic);
+        window.open(url, '_blank');
+        setStatus('Question sent to the agora - confirm the GitHub issue; the verdict lands in the Chronicle in a few minutes.', { sticky: true });
+        return;
+    }
 
     if (keyInput.value.trim()) localStorage.setItem('sa_or_key', keyInput.value.trim());
     localStorage.setItem('sa_model', modelInput.value.trim() || DEFAULT_MODEL);
@@ -1298,6 +1316,54 @@ stopBtn.addEventListener('click', () => {
 });
 
 topicInput.addEventListener('keydown', e => { if (e.key === 'Enter') startBtn.click(); });
+
+/* ============================================================
+ * Chronicle: past debates, published by the GitHub Actions
+ * workflow into debates.json, replayable with full animation
+ * ============================================================ */
+let CHRONICLE = [];
+fetch('debates.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+    chronicleSelect.textContent = '';
+    if (!d || !Array.isArray(d.debates) || !d.debates.length) {
+        chronicleSelect.appendChild(new Option('No debates chronicled yet'));
+        return;
+    }
+    CHRONICLE = d.debates;
+    CHRONICLE.forEach((dbt, i) => {
+        const o = new Option(String(dbt.created_at || '').slice(0, 10) + ' - ' + dbt.question, String(i));
+        chronicleSelect.appendChild(o);
+    });
+    replayBtn.disabled = false;
+}).catch(() => {
+    chronicleSelect.textContent = '';
+    chronicleSelect.appendChild(new Option('Chronicle unavailable'));
+});
+
+replayBtn.addEventListener('click', async () => {
+    const d = CHRONICLE[Number(chronicleSelect.value)];
+    if (!d) return;
+    controller = new AbortController();
+    setRunning(true);
+    setStatus('Replaying: ' + d.question, { sticky: true });
+    try {
+        const transcript = typeof d.transcript === 'string' ? JSON.parse(d.transcript) : d.transcript;
+        for (const turn of transcript) {
+            if (controller.signal.aborted) return;
+            const p = PERSONAS.find(x => x.name === turn.speaker);
+            if (p) { await speak(p, turn.text); await sleep(250); }
+        }
+        if (!controller.signal.aborted && d.verdict) {
+            setStatus('The Judge delivers the chronicled verdict…', { sticky: true });
+            await speak(PERSONAS.find(p => p.id === 'judge'), d.verdict);
+        }
+        setStatus(d.consensus ? 'Consensus was reached.' : 'The Judge ruled without full consensus.');
+    } finally {
+        controller = null;
+        clearAllBubbles();
+        for (const c of chars) c.state = 'idle';
+        setRunning(false);
+    }
+});
 
 setStatus('Welcome to the agora. Pose a question to begin.');
 </script>

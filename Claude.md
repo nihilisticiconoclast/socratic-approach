@@ -4,8 +4,11 @@
 This project implements a multi-agent LLM debate system with a pixel-art visual interface. Six AI personas debate user-submitted ideas in character, in an Ancient Greek setting rendered as detailed pixel-art illustration.
 
 ## Key Files
-- index.html - Main application with canvas rendering and debate logic
-- server.js - Optional zero-dependency Node server that holds OPENROUTER_API_KEY and proxies the LLM calls (page auto-detects it and hides the key field)
+- index.html - Main application: canvas rendering, debate logic, Chronicle replayer
+- scripts/debate.js - GitHub Actions debate runner: OpenRouter + Neon persistence + history augmentation + issue reporting
+- .github/workflows/debate.yml - runs a debate per `debate`-labeled issue or manual dispatch; publishes debates.json to main
+- debates.json - published Chronicle consumed by the site
+- server.js - Optional zero-dependency Node server that holds OPENROUTER_API_KEY for local live debates
 - README.md - Setup instructions and documentation
 - All art is procedural (no external asset files)
 
@@ -36,6 +39,7 @@ Each agent has a carefully crafted system prompt to maintain its role:
 6. Judge: Evaluates arguments, guides toward resolution
 
 ### Conversation Flow
+Production: user submits via the site -> prefilled GitHub issue -> Actions workflow debates with repo secrets, stores to Neon, feeds recent history into prompts, publishes debates.json -> site Chronicle replays it. Local live mode:
 1. User submits a question/idea
 2. System initializes debate with all six agents
 3. Each round, the five debaters respond in sequence (each sees the transcript so far, so they can react to one another); the Judge closes the round and checks for consensus
