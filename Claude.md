@@ -1,15 +1,26 @@
 # Claude Context: Socratic Approach Project
 
+## Project Log — READ THIS FIRST (recorded 2026-07-04 at the owner's request)
+The build process to this point was, in the owner's words, a disaster. What went wrong, so it is never repeated:
+- Sessions iterated on aesthetics at length before the product flow was pinned down.
+- Internal plumbing leaked into the user-facing page: an API-key dialog that was no longer needed, a "Chronicle" dropdown exposing what should have been internal storage, and — worst — a Begin Debate button that redirected users to create a GitHub issue.
+
+Hard product rules now in force. Do not violate these:
+1. The complete user experience is: type a question -> watch the philosophers debate -> see the verdict. Nothing else appears in the flow.
+2. No keys, key fields, or key language anywhere in the UI. Secrets exist only as server-side environment variables, consumed by the api/ functions (or server.js locally).
+3. The debate history in Neon is INTERNAL: it chronicles debates and augments future prompts. It must never surface as user-facing UI.
+4. No GitHub concepts (issues, workflows, repositories) may ever appear in the user flow.
+
 ## Project Overview
 This project implements a multi-agent LLM debate system with a pixel-art visual interface. Six AI personas debate user-submitted ideas in character, in an Ancient Greek setting rendered as detailed pixel-art illustration.
 
 ## Key Files
-- index.html - Main application: canvas rendering, debate logic, Chronicle replayer
-- scripts/debate.js - GitHub Actions debate runner: OpenRouter + Neon persistence + history augmentation + issue reporting
-- .github/workflows/debate.yml - runs a debate per `debate`-labeled issue or manual dispatch; publishes debates.json to main
-- debates.json - published Chronicle consumed by the site
-- server.js - Optional zero-dependency Node server that holds OPENROUTER_API_KEY for local live debates
-- README.md - Setup instructions and documentation
+- index.html - Main application: canvas rendering, animation, debate orchestration (calls the api/ endpoints only)
+- api/chat.js - server-side OpenRouter proxy (holds OPENROUTER_API_KEY)
+- api/history.js / api/record.js - internal Neon chronicle: recent history for prompt augmentation, persistence of finished debates
+- api/health.js, api/_db.js - server status and shared DB access (table auto-created)
+- server.js - local dev server exposing the same /api endpoints
+- README.md - Setup and deployment instructions
 - All art is procedural (no external asset files)
 
 ## Implementation Notes
@@ -39,8 +50,8 @@ Each agent has a carefully crafted system prompt to maintain its role:
 6. Judge: Evaluates arguments, guides toward resolution
 
 ### Conversation Flow
-Production: user submits via the site -> prefilled GitHub issue -> Actions workflow debates with repo secrets, stores to Neon, feeds recent history into prompts, publishes debates.json -> site Chronicle replays it. Local live mode:
-1. User submits a question/idea
+1. User submits a question/idea (no keys, no redirects - the debate runs live in the page via /api/chat)
+0. Before round one, the orchestrator fetches /api/history so recent verdicts inform the debate; after the verdict it POSTs the debate to /api/record. Both are invisible to the user.
 2. System initializes debate with all six agents
 3. Each round, the five debaters respond in sequence (each sees the transcript so far, so they can react to one another); the Judge closes the round and checks for consensus
 4. Responses displayed as speech bubbles with a typing effect

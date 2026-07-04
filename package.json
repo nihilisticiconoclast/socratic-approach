@@ -1,0 +1,12 @@
+{
+  "name": "socratic-approach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-agent LLM debate in a pixel-art Greek agora",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
+}

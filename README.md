@@ -4,24 +4,36 @@
 
 A web application that enables users to submit questions, ideas, or beliefs, which are then debated by six distinct LLM personas via OpenRouter's free tier. The system orchestrates a structured conversation that progresses toward consensus.
 
-## How a Question Becomes a Debate (production flow — no keys in the browser)
+## How It Runs
 
-1. On the site, type a question and press **Begin Debate**. With no key present, the page opens a prefilled GitHub issue — confirming that issue is the submission.
-2. The **Debate** workflow (`.github/workflows/debate.yml`) triggers on the issue, runs the six-persona debate through OpenRouter using the repository secret, and augments every prompt with recent questions and verdicts pulled from the database, so past debates inform new ones.
-3. The result is stored in **Neon Postgres** (`debates` table — created automatically on first run), posted back to the issue as a comment, and published to `debates.json`.
-4. The site's **Chronicle** dropdown lists every published debate and replays any of them in the scene with full animation.
+The user experience is exactly this: **type a question → watch the six philosophers debate it live in the scene → the Judge delivers the verdict.** No keys, no sign-ups, no redirects.
 
-### One-time setup (manual)
+Behind the page sits a small server API that holds the secrets:
 
-- **Secrets** — repo Settings → Secrets and variables → Actions: `OPENROUTER_API_KEY`, and your Neon connection string as `DATABASE_URL` (the name `NEON_DATABASE_URL` also works).
-- **Workflow permissions** — Settings → Actions → General → Workflow permissions → *Read and write permissions* (needed to publish `debates.json` and comment on issues).
-- **GitHub Pages** — Settings → Pages → Deploy from a branch → `main`, `/ (root)`.
-- **Smoke test** — Actions tab → *Debate* → *Run workflow* with any question.
+- `/api/chat` — proxies the LLM calls to OpenRouter with the server-held `OPENROUTER_API_KEY`
+- `/api/history` — returns recent questions & verdicts from Neon; the orchestrator feeds them into every new debate so past debates inform new ones
+- `/api/record` — stores each finished debate (question, transcript, verdict, consensus) in Neon; the table is created automatically
+- `/api/health` — tells the page the server is ready
 
-### Local / dev modes
+The Neon chronicle is **internal storage only** — reference data and prompt augmentation. It is never shown in the UI.
 
-- `OPENROUTER_API_KEY=sk-or-... node server.js` → http://localhost:3000 — live in-browser debate; the page detects the server-held key and never asks for one.
-- Open `index.html` directly and paste a key into the field → live in-browser debate (key stays in your browser's localStorage). A static page cannot read GitHub or platform secrets — that is why the production flow runs the debate in Actions instead.
+### Deploy (one time)
+
+The site needs a host that can run the `api/` functions — GitHub Pages cannot (it is static-only, and no website can read GitHub Actions secrets). Vercel's free tier works out of the box:
+
+1. Go to vercel.com → sign in with GitHub → **Import** the `socratic-approach` repository.
+2. In the import screen, add two Environment Variables: `OPENROUTER_API_KEY` and `DATABASE_URL` (your Neon connection string). These must be entered in the host's settings — secrets stored in GitHub are only visible to GitHub Actions, not to any website.
+3. Deploy. Done — visitors just type a question and watch.
+
+### Run locally
+
+```sh
+npm install   # optional, only needed for database access
+OPENROUTER_API_KEY=sk-or-... DATABASE_URL=postgres://... node server.js
+# → http://localhost:3000
+```
+
+`DATABASE_URL` is optional locally; without it, history and recording are silently skipped.
 
 ## Visual Design
 
@@ -88,14 +100,12 @@ Animation is unaffected by the pipeline: the smooth scene is repainted every fra
 
 ## Implementation
 
-The entire application lives in a single `index.html` file with no dependencies beyond the "Press Start 2P" web font and the OpenRouter API.
+The page is a single `index.html` with no dependencies beyond the "Press Start 2P" web font; the `api/` functions are plain Node handlers whose only dependency is `pg`.
 
 ### File Structure
-- `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, debate orchestration, and the Chronicle replayer
-- `scripts/debate.js` — the debate runner executed by GitHub Actions: OpenRouter calls, Neon persistence, history augmentation, issue reporting
-- `.github/workflows/debate.yml` — triggers a debate for every `debate`-labeled issue (or manual dispatch) and publishes `debates.json`
-- `debates.json` — the published Chronicle consumed by the site
-- `server.js` — optional zero-dependency Node server for local live debates with a server-held `OPENROUTER_API_KEY`
+- `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, and debate orchestration
+- `api/` — serverless functions: `chat` (OpenRouter proxy), `history` & `record` (internal Neon chronicle), `health`
+- `server.js` — local dev server exposing the same `/api` endpoints
 - All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then pixelated by the nearest-neighbour workflow described above
 
 ### How It Works
