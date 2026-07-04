@@ -1,0 +1,14 @@
+{
+  "services": {
+    "socratic_backend": {
+      "start": "node server.js",
+      "build": "npm install",
+      "env": {
+        "OPENROUTER_API_KEY": "${{OPENROUTER_API_KEY}}",
+        "NEON_DATABASE_URL": "${{NEON_DATABASE_URL}}",
+        "CORS_ORIGIN": "https://nihilisticiconoclast.github.io",
+        "PORT": "3000"
+      }
+    }
+  }
+}
