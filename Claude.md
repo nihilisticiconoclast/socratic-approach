@@ -5,6 +5,7 @@ This project implements a multi-agent LLM debate system with a pixel-art visual 
 
 ## Key Files
 - index.html - Main application with canvas rendering and debate logic
+- server.js - Optional zero-dependency Node server that holds OPENROUTER_API_KEY and proxies the LLM calls (page auto-detects it and hides the key field)
 - README.md - Setup instructions and documentation
 - All art is procedural (no external asset files)
 

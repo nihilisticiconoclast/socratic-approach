@@ -1132,18 +1132,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function callAgent(persona, userContent, signal) {
     const key = keyInput.value.trim();
     const model = modelInput.value.trim() || DEFAULT_MODEL;
+    // When served by server.js with a server-held key, calls go through the
+    // local proxy and no key ever touches the browser.
+    const url = PROXY_MODE ? '/api/chat' : 'https://openrouter.ai/api/v1/chat/completions';
+    const headers = { 'Content-Type': 'application/json', 'X-Title': 'Socratic Approach' };
+    if (!PROXY_MODE) headers['Authorization'] = 'Bearer ' + key;
     let lastErr;
     for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await sleep(3000 * attempt);
         try {
-            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            const res = await fetch(url, {
                 method: 'POST',
                 signal,
-                headers: {
-                    'Authorization': 'Bearer ' + key,
-                    'Content-Type': 'application/json',
-                    'X-Title': 'Socratic Approach'
-                },
+                headers,
                 body: JSON.stringify({
                     model,
                     max_tokens: 300,
@@ -1251,6 +1252,16 @@ const stopBtn = document.getElementById('stop-btn');
 modelInput.value = localStorage.getItem('sa_model') || DEFAULT_MODEL;
 keyInput.value = localStorage.getItem('sa_or_key') || '';
 
+// Detect a key-holding server (server.js) and hide the key field if found.
+let PROXY_MODE = false;
+fetch('/api/health').then(r => r.ok ? r.json() : null).then(d => {
+    if (d && d.proxy) {
+        PROXY_MODE = true;
+        keyInput.closest('.field').style.display = 'none';
+        setStatus('Server-held API key detected - no key needed.');
+    }
+}).catch(() => {});
+
 function setRunning(running) {
     startBtn.disabled = running;
     topicInput.disabled = running;
@@ -1260,9 +1271,9 @@ function setRunning(running) {
 startBtn.addEventListener('click', async () => {
     const topic = topicInput.value.trim();
     if (!topic) { setStatus('Offer the assembly a question first.', { error: true }); topicInput.focus(); return; }
-    if (!keyInput.value.trim()) { setStatus('An OpenRouter API key is required.', { error: true }); keyInput.focus(); return; }
+    if (!PROXY_MODE && !keyInput.value.trim()) { setStatus('An OpenRouter API key is required.', { error: true }); keyInput.focus(); return; }
 
-    localStorage.setItem('sa_or_key', keyInput.value.trim());
+    if (keyInput.value.trim()) localStorage.setItem('sa_or_key', keyInput.value.trim());
     localStorage.setItem('sa_model', modelInput.value.trim() || DEFAULT_MODEL);
 
     controller = new AbortController();

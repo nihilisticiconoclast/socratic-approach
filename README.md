@@ -6,15 +6,24 @@ A web application that enables users to submit questions, ideas, or beliefs, whi
 
 ## Getting Started
 
-1. Get a free API key from [OpenRouter](https://openrouter.ai/keys).
-2. Open `index.html` in a modern browser — no build step or server is required (though you can serve it locally with `python3 -m http.server` if you prefer).
-3. Paste your API key into the key field (it is stored only in your browser's localStorage).
-4. Optionally change the model — any OpenRouter model ID works; the default is a free-tier model.
-5. Type a question, idea, or belief and press **Begin Debate**.
+First, get a free API key from [OpenRouter](https://openrouter.ai/keys). Then run the app one of two ways:
 
-The six philosophers will debate the topic in rounds. After each round the Judge deliberates; the debate ends when the Judge declares consensus or the maximum number of rounds is reached, at which point the Judge delivers a final verdict.
+**Option A — with the bundled server (recommended; the page never asks for a key):**
 
-> **Security note:** the API key is used directly from the browser, so it is visible to anyone with access to the page session. This is fine for personal use with a free-tier key; for production, proxy the API calls through a backend that holds the key.
+```sh
+OPENROUTER_API_KEY=sk-or-... node server.js
+# → http://localhost:3000
+```
+
+The server holds the key and proxies the LLM calls; the page detects this and hides the key field. Set the key as an environment variable wherever the server runs (your shell, a hosting platform's secrets, etc.).
+
+**Option B — as a plain static file:**
+
+Open `index.html` directly in a browser and paste your API key into the key field (it is stored only in your browser's localStorage). This exists because a static page running in a browser **cannot read server-side secrets** — secrets stored in a platform (hosting dashboards, databases, environment settings) are only visible to server-side code like `server.js`.
+
+Either way: optionally change the model (any OpenRouter model ID works; the default is free-tier), then type a question, idea, or belief and press **Begin Debate**. The six philosophers debate in rounds; after each round the Judge deliberates, and the debate ends when the Judge declares consensus or the round limit is reached, at which point the Judge delivers a final verdict.
+
+> **Security note:** in Option B the API key is used directly from the browser, so it is visible to anyone with access to the page session — fine for personal use with a free-tier key. Use Option A (or any backend proxy) for anything shared or production.
 
 ## Visual Design
 
@@ -85,6 +94,7 @@ The entire application lives in a single `index.html` file with no dependencies 
 
 ### File Structure
 - `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, and debate orchestration
+- `server.js` — optional zero-dependency Node server: serves the app and proxies OpenRouter calls with a server-held `OPENROUTER_API_KEY`, so the browser never handles the key
 - All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then pixelated by the nearest-neighbour workflow described above
 
 ### How It Works
