@@ -16,141 +16,49 @@ The six philosophers will debate the topic in rounds. After each round the Judge
 
 > **Security note:** the API key is used directly from the browser, so it is visible to anyone with access to the page session. This is fine for personal use with a free-tier key; for production, proxy the API calls through a backend that holds the key.
 
-## Visual Design Specification
+## Visual Design
 
-### Aesthetic Direction
-The interface combines low-fi pixel art visuals with hyper-realistic human movement animation. Characters are rendered in pixel art style but animate with fluid, natural motion to create an immersive conversation experience. The mood is warm Mediterranean daylight — cream marble, sand-toned stone, azure sea and sky — in the manner of detailed retro pixel-art illustration, not cold or neon.
+### Look & Feel
 
-### Scene Composition
+Detailed, illustration-grade pixel art: a dense uniform pixel grid, warm Mediterranean daylight, realistic figure proportions and natural posing, and painterly light and shade. The frame should read as a single hand-shaded pixel illustration — never as a collection of small game sprites at mixed densities.
 
-**Camera Perspective**
-- First-person viewpoint positioned within the group circle
-- To make the viewer feel seated in the circle, the two nearest debaters are seen **from behind**: large, in the bottom corners of the frame, cropped by its edge
-- Speakers are the primary focus in the foreground
-- Camera angle is slightly elevated, looking down at the circle of debaters
+### Technique: Nearest-Neighbour Pixelation Workflow
 
-**Character Arrangement**
-- Six characters arranged in a semi-circle facing inward
-- The group is **seated** (stone benches), as at a symposium: four personas face the viewer across the circle; the Grump and the Synthesizer sit nearest the camera with their backs to it
-- Each character represents one of the six agent personas
-- Positions staggered for visual interest and to avoid symmetry
-- Characters maintain appropriate personal space while appearing engaged
+The pixel-art look is produced by pixelating smoothly painted artwork rather than by placing individual pixels:
 
-### Character Design (Pixel Art Style)
+1. **Paint** the scene smoothly at full resolution (960x540) with canvas vector graphics — gradients for sky, sea, skin and cloth; bezier silhouettes for anatomy and drapery; soft shadows.
+2. **Downsample** the frame to a low-resolution pixel grid (320x180).
+3. **Quantize** the palette (posterization) with ordered Bayer dithering for the retro shading feel.
+4. **Upscale** back to display size with **nearest-neighbour** sampling, so every pixel lands crisp and square on one uniform grid.
 
-**Art Style**
-- Dense, illustration-grade pixel art: the entire scene — figures and background alike — shares one uniform 320x180 pixel grid (3x3 screen pixels per cell), like a single hand-made piece, never mixed sprite densities
-- Rendered with a paint-then-quantize technique: the scene is first painted smoothly (gradients, curved anatomy, soft cloth shading), then downsampled onto the pixel grid, palette-posterized, and ordered-dithered — which is what produces the hand-shaded pixel-illustration look of the reference art
-- Realistic body proportions and natural poses (seated, leaning, gesturing), not chibi sprites
-- Greek classical attire: Togas, chitons, sandals
-- Distinct color schemes for each persona, muted/harmonized so all six sit naturally in the warm scene palette (the persona color appears as the garment, drape, or trim)
+Animation is unaffected by the pipeline: the smooth scene is repainted every frame and re-pixelated, so motion stays fluid while the output stays pixel art.
 
-> Note: an earlier draft of this spec fixed characters at 32x48 sprites. That constraint capped visual quality far below the intended reference style and has been removed.
+### Theme: Ancient Greece
 
-**Personas and Visual Identifiers**
+**Clothing** — chitons, togas and himations, and sandals. Each persona keeps a signature color, worn as their garment, drape, or trim:
 
-| Persona | Color Scheme | Distinguishing Features | Attire |
-|---------|--------------|------------------------|--------|
-| **Socrates** | Deep blue (#2563eb) | White beard, balding, staff | White toga with blue sash |
-| **Contrarian** | Red (#ef4444) | Frowned brows, crossed arms | Red chiton, gold accents |
-| **Free Thinker** | Purple (#8b5cf6) | Wild hair, open gestures | Flowing purple toga |
-| **Grump** | Gray (#78716c) | Slouched posture, scowl | Dull gray tunic |
-| **Synthesizer** | Green (#10b981) | Balanced stance, calm expression | Olive green himation |
-| **Judge** | Orange (#f59e0b) | Stern expression, upright posture | Orange toga with white trim |
+| Persona | Signature color | Worn as |
+|---------|-----------------|---------|
+| Socrates | Blue | Himation drape over a cream toga; white beard, bald, staff |
+| Contrarian | Red | Chiton with gold trim; arms crossed |
+| Free Thinker | Purple | Toga; wild hair |
+| Grump | Gray | Plain tunic; slouched posture |
+| Synthesizer | Green | Himation band |
+| Judge | Orange | Toga with light trim |
 
-**Animation Requirements**
-- **Idle Animations**: Subtle weight shifts, breathing motion, occasional head turns
-- **Speaking Animations**: 
-  - Head nods and tilts synchronized with speech rhythm
-  - Hand gestures (pointing, open palms, thinking pose)
-  - Eye blinks at natural intervals
-  - Mouth movement for speech (2-3 frame animation)
-- **Listening Animations**: 
-  - Head tilts indicating consideration
-  - Occasional nodding in agreement
-  - Crossed arms or chin-stroking for contemplation
-- **Transition Animations**: Smooth 2-3 frame transitions between states
+**Scenery** — an open-air agora terrace: marble columns framing the view, a stone parapet, the Acropolis with its temple on a headland, cypress and olive trees, the azure Mediterranean sea and sky, a mosaic medallion set into the stone floor, and props such as an amphora and a discarded scroll.
 
-### Background Design
+**Composition** — first-person viewpoint from a seat within the debate circle: the two nearest debaters are seen from behind, large in the frame and cropped by its edges; the other four sit on stone benches facing the viewer.
 
-**Theme**: Ancient Greek Mediterranean
+### Speech Bubbles & UI
 
-**Foreground (In Focus)**
-- Stone floor with mosaic patterns (pixel art)
-- Partial stone pillars framing the scene
-- Olive branches scattered on the ground
-
-**Midground**
-- Crumbling marble columns
-- Stone ruins and architectural fragments
-- Olive trees with distinctive pixel art foliage
-- Mediterranean vegetation (rosemary, thyme)
-
-**Background (Distant)**
-- Azure Mediterranean sea
-- Distant islands on the horizon
-- Clear blue sky with subtle cloud details
-- Ancient Greek temple ruins in the distance
-
-**Color Palette** (warm Mediterranean daylight)
-- Marble/stone: #ede4d0, #d9c9a3, #b8a67f
-- Sea: #57a0cc, #3f86b8, #2f6f9e
-- Sky: #5ba3d0, #7fb9de, #a9d2ea
-- Vegetation: #8aa886, #6f8f6a, #57705a
-- Terracotta (pots, amphorae): #cc8352, #b0663a, #8a4a28
-- Shadows: warm umber, e.g. rgba(120, 96, 60, 0.35)
-
-### Speech Bubble System
-
-**Design**
-- Pixel art style bubbles with jagged edges
-- Color-coded to match each character's theme
-- Semi-transparent background (80% opacity)
-- Tail pointer indicating speaker
-
-**Animation**
-- **Appearance**: Fade in from speaker's mouth position, growing to full size (0.3s)
-- **Display**: Remains visible while character is speaking + 1 second buffer
-- **Disappearance**: Fade out and shrink back to speaker (0.3s)
-- **Typing Effect**: Text appears character by character with slight pause between words
-
-**Positioning**
-- Bubbles emerge from character's mouth area
-- Positioned above character's head
-- Automatically adjusts to avoid overlap with other bubbles
-- Maximum of 1 bubble per character at a time
-
-**Styling**
-- Border: 2px solid, color matches character theme
-- Background: Character's primary color at 80% opacity
-- Text: White or black depending on contrast
-- Padding: 8-12 pixels
-- Border radius: 4-6 pixels (slightly rounded)
-- Font: Pixel font (e.g., "Press Start 2P" or custom pixel font)
-
-### UI Elements
-
-**Input Area**
-- Pixel art styled text input
-- Stone-like border texture
-- Parchment-like background
-- Cursor: Blinking pixel art caret
-
-**Submit Button**
-- Stone tablet appearance
-- Engraved text effect
-- Press animation: Slight depression effect
-- Hover: Color shift to indicate interactivity
-
-**Status Messages**
-- Scroll-like appearance
-- Fade in/out animations
-- Positioned at bottom of scene
+- Speech bubbles are color-coded to each persona, with a tail pointing to the speaker, a character-by-character typing effect, and fade in/out.
+- UI chrome is parchment-and-stone: parchment input fields, stone-tablet buttons with a press animation, and scroll-styled status messages at the bottom of the scene.
 
 ## Architecture
 
 ### Frontend
-- HTML5 Canvas for pixel art rendering
+- HTML5 Canvas for rendering
 - JavaScript for animation and conversation logic
 - CSS for overall layout and non-canvas elements
 
@@ -176,13 +84,13 @@ The interface combines low-fi pixel art visuals with hyper-realistic human movem
 The entire application lives in a single `index.html` file with no dependencies beyond the "Press Start 2P" web font and the OpenRouter API.
 
 ### File Structure
-- `index.html` — markup, styles, and all JavaScript: canvas rendering, animation, speech bubbles, and debate orchestration
-- All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then quantized onto the pixel grid by the render pipeline
+- `index.html` — markup, styles, and all JavaScript: rendering, animation, speech bubbles, and debate orchestration
+- All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then pixelated by the nearest-neighbour workflow described above
 
 ### How It Works
-1. Every frame, the scene is painted *smoothly* at full resolution (960x540) with canvas vector graphics: gradients for sky, sea, skin and cloth; bezier silhouettes for anatomy and drapery; soft shadows. The background (sky, sea, islands, the whitewashed coastal town, the Acropolis with its temple, cypresses, stone parapet, potted olive, amphora, mosaic medallion, framing marble columns) is painted once and cached.
-2. The smooth frame is then downsampled to a 320x180 pixel grid, palette-posterized (11 levels per channel) with 4x4 Bayer ordered dithering, and upscaled 3x with nearest-neighbour sampling. This paint-then-quantize pipeline is what gives the dense, hand-shaded pixel-art illustration look.
-3. The six characters are painted each frame with real poses: four seated debaters facing the viewer on marble benches, and the two nearest — Grump and Synthesizer — seen from behind as large foreground figures cropped by the frame. Breathing, blinking, nodding, mouth and gesture animation runs via `requestAnimationFrame`; back-view characters turn their head to profile and gesture while speaking.
+1. Every frame, the scene is painted smoothly at full resolution. The background (sky, sea, coastal town, Acropolis, parapet, floor, props, framing columns) is painted once and cached; the six characters are painted per frame with their current animation state.
+2. The frame is downsampled to 320x180, palette-posterized with Bayer dithering, and upscaled with nearest-neighbour sampling to the display canvas.
+3. Characters animate continuously: breathing, blinking, listening nods, speaking mouth frames and hand gestures; the two back-view foreground figures turn their head to profile while speaking.
 4. When a debate starts, the orchestrator runs up to `MAX_TURNS` rounds. In each round the five debaters speak in sequence (each sees the transcript so far), then the Judge deliberates and issues a `VERDICT: CONSENSUS` or `VERDICT: CONTINUE` marker. On consensus or after the final round, the Judge delivers a closing verdict.
 5. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
 
@@ -191,3 +99,5 @@ Tunable constants near the top of the script in `index.html`:
 - `DEFAULT_MODEL` — OpenRouter model ID (defaults to a free-tier model; can also be changed in the UI)
 - `MAX_TURNS` — maximum debate rounds before the Judge must rule (default 3)
 - `API_DELAY_MS` — pause between API calls to respect free-tier rate limits
+- `LO_W` / `LO_H` — resolution of the pixelation grid (default 320x180)
+- `LEVELS` — posterization levels per color channel (default 11)

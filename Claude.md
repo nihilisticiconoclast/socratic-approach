@@ -1,22 +1,22 @@
 # Claude Context: Socratic Approach Project
 
 ## Project Overview
-This project implements a multi-agent LLM debate system with a unique pixel art visual interface. Six AI personas debate user-submitted ideas in character, with realistic animations and a Greek-themed setting.
+This project implements a multi-agent LLM debate system with a pixel-art visual interface. Six AI personas debate user-submitted ideas in character, in an Ancient Greek setting rendered as detailed pixel-art illustration.
 
 ## Key Files
 - index.html - Main application with canvas rendering and debate logic
 - README.md - Setup instructions and documentation
-- Sprites and background art are drawn procedurally on the canvas (no external asset files)
+- All art is procedural (no external asset files)
 
 ## Implementation Notes
 
 ### Visual Design Requirements
-- Style: Dense, illustration-grade pixel art on one uniform 320x180 grid (3x3 screen pixels per cell), with hyper-realistic movement and realistic body proportions. Achieved by painting the scene smoothly (gradients, bezier anatomy, soft shading) and then quantizing: downsample to the pixel grid, posterize the palette, apply ordered dithering, upscale with nearest-neighbour. Do NOT draw characters as small fixed-size sprites — that hard-caps quality below the reference art.
-- Palette: Warm Mediterranean daylight — cream marble, sand stone, azure sea/sky
-- Theme: Ancient Greek with Mediterranean background (Acropolis and temple in the distance)
-- Camera: First-person within the debate circle — the two nearest debaters (Grump and Synthesizer) are seen from behind, large and cropped at the bottom corners; the other four sit facing the viewer
-- Characters: Six distinct seated personas with unique visual identities (persona color appears as garment, drape, or trim over a harmonized warm palette)
-- Animation: Fluid, natural movement synchronized with speech; back-view characters turn their head to profile while speaking
+- Style: detailed, illustration-grade pixel art on one uniform pixel grid — warm Mediterranean daylight, realistic proportions, painterly shading
+- Technique: **nearest-neighbour pixelation workflow** — paint the scene smoothly at full resolution (gradients, bezier anatomy, soft shading), downsample to a 320x180 grid, posterize the palette with ordered dithering, then upscale with nearest-neighbour sampling. Do NOT draw characters as small fixed-size sprites; that hard-caps quality
+- Theme: Ancient Greece in both clothing (chitons, togas, himations, sandals) and scenery (agora terrace, marble columns, Acropolis temple, cypresses and olives, Mediterranean sea, mosaic floor)
+- Composition: first-person viewpoint inside the debate circle — the two nearest personas (Grump, Synthesizer) are seen from behind, large and cropped by the frame; the other four sit facing the viewer
+- Characters: six distinct personas, each with a signature color worn as garment, drape, or trim
+- Animation: fluid, natural movement synchronized with speech; the smooth scene is repainted and re-pixelated every frame
 
 ### Technical Stack
 - HTML5 Canvas for rendering
@@ -42,18 +42,18 @@ Each agent has a carefully crafted system prompt to maintain its role:
 5. After MAX_TURNS or consensus detection, the Judge generates a final summary
 
 ### Animation System
-- Character sprites with multiple animation frames
-- State-based rendering (idle, speaking, listening)
-- Speech bubble system with fade in/out
-- Subtle camera movement and depth effects
+- State-based animation (idle, speaking, listening): breathing, blinking, nods, mouth frames, hand gestures
+- Back-view foreground characters turn their head to profile while speaking
+- Speech bubble system with fade in/out and typing effect
+- Subtle camera sway and parallax on the framing columns
 
 ## Development Guidelines
 
 ### For Visual Assets
-- All art is procedural: painted smoothly on a hi-res canvas each frame, then pixelated through the downsample/posterize/dither pipeline (see `render()` in index.html)
-- Figures are painted at natural size for their place in the scene — foreground back-view figures span most of the frame height; if external art is ever introduced, use pixel art tools like Aseprite or Piskel
-- Maintain consistent color palette per character, harmonized to the warm scene palette
-- Background should be layered (foreground framing columns, stone parapet, sea/hill, sky)
+- All art is procedural: painted smoothly on a hi-res canvas each frame, then pixelated through the downsample/posterize/dither/nearest-neighbour pipeline (see `render()` in index.html)
+- Figures are painted at natural size for their place in the scene — foreground back-view figures span most of the frame height
+- Maintain each persona's signature color, harmonized to the warm scene palette
+- Background should be layered (foreground framing columns, benches and figures, parapet, sea/hill, sky)
 
 ### For Code
 - Keep canvas rendering separate from debate logic
@@ -86,6 +86,5 @@ Each agent has a carefully crafted system prompt to maintain its role:
 ## Important Considerations
 - OpenRouter free tier has rate limits
 - Client-side API keys are visible in browser (use backend for production)
-- Pixel art requires attention to detail
 - Animation performance varies by device
 - Mobile support may need additional work
