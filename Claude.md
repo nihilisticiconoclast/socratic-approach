@@ -51,11 +51,10 @@ Each agent has a carefully crafted system prompt to maintain its role:
 
 ### Conversation Flow
 1. User submits a question/idea (no keys, no redirects - the debate runs live in the page via /api/chat)
-0. Before round one, the orchestrator fetches /api/history so recent verdicts inform the debate; after the verdict it POSTs the debate to /api/record. Both are invisible to the user.
-2. System initializes debate with all six agents
+2. The orchestrator fetches /api/history so recent verdicts inform the debate (invisible to the user), then initializes all six agents
 3. Each round, the five debaters respond in sequence (each sees the transcript so far, so they can react to one another); the Judge closes the round and checks for consensus
 4. Responses displayed as speech bubbles with a typing effect
-5. After MAX_TURNS or consensus detection, the Judge generates a final summary
+5. After MAX_TURNS or consensus detection, the Judge generates a final summary; the finished debate is POSTed to /api/record (invisible to the user)
 
 ### Animation System
 - State-based animation (idle, speaking, listening): breathing, blinking, nods, mouth frames, hand gestures
@@ -92,7 +91,6 @@ Each agent has a carefully crafted system prompt to maintain its role:
 - Validate API key handling
 
 ## Future Enhancements
-- Backend service to hide API keys
 - Character customization options
 - Interactive camera controls
 - Debate export functionality
@@ -101,6 +99,6 @@ Each agent has a carefully crafted system prompt to maintain its role:
 
 ## Important Considerations
 - OpenRouter free tier has rate limits
-- Client-side API keys are visible in browser (use backend for production)
+- Secrets live only in server-side env vars (api/ functions or server.js); never reintroduce a browser-side key path
 - Animation performance varies by device
 - Mobile support may need additional work
