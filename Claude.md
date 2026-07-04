@@ -11,7 +11,7 @@ This project implements a multi-agent LLM debate system with a unique pixel art 
 ## Implementation Notes
 
 ### Visual Design Requirements
-- Style: Low-fi pixel art (32x48px base grid, scaled up for characters nearer the camera) with hyper-realistic movement and realistic body proportions
+- Style: Dense, illustration-grade pixel art on one uniform 320x180 grid (3x3 screen pixels per cell), with hyper-realistic movement and realistic body proportions. Achieved by painting the scene smoothly (gradients, bezier anatomy, soft shading) and then quantizing: downsample to the pixel grid, posterize the palette, apply ordered dithering, upscale with nearest-neighbour. Do NOT draw characters as small fixed-size sprites — that hard-caps quality below the reference art.
 - Palette: Warm Mediterranean daylight — cream marble, sand stone, azure sea/sky
 - Theme: Ancient Greek with Mediterranean background (Acropolis and temple in the distance)
 - Camera: First-person within the debate circle — the two nearest debaters (Grump and Synthesizer) are seen from behind, large and cropped at the bottom corners; the other four sit facing the viewer
@@ -50,8 +50,8 @@ Each agent has a carefully crafted system prompt to maintain its role:
 ## Development Guidelines
 
 ### For Visual Assets
-- Use 32x48 pixel base size for characters, scaled to larger grids/pixel density the closer a character is to the camera
-- Sprites are procedural (drawn on canvas per frame from pixel-grid coordinates); if external art is ever introduced, use pixel art tools like Aseprite or Piskel
+- All art is procedural: painted smoothly on a hi-res canvas each frame, then pixelated through the downsample/posterize/dither pipeline (see `render()` in index.html)
+- Figures are painted at natural size for their place in the scene — foreground back-view figures span most of the frame height; if external art is ever introduced, use pixel art tools like Aseprite or Piskel
 - Maintain consistent color palette per character, harmonized to the warm scene palette
 - Background should be layered (foreground framing columns, stone parapet, sea/hill, sky)
 

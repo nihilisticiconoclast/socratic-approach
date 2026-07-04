@@ -39,12 +39,13 @@ The interface combines low-fi pixel art visuals with hyper-realistic human movem
 ### Character Design (Pixel Art Style)
 
 **Art Style**
-- Resolution: 32x48 pixels per character as the base grid (scalable — characters nearer the camera are drawn on proportionally larger grids and at higher pixel density)
-- Realistic body proportions (heads roughly 1/6 of body height), not chibi
-- Color palette: Limited to 16-32 colors per character
+- Dense, illustration-grade pixel art: the entire scene — figures and background alike — shares one uniform 320x180 pixel grid (3x3 screen pixels per cell), like a single hand-made piece, never mixed sprite densities
+- Rendered with a paint-then-quantize technique: the scene is first painted smoothly (gradients, curved anatomy, soft cloth shading), then downsampled onto the pixel grid, palette-posterized, and ordered-dithered — which is what produces the hand-shaded pixel-illustration look of the reference art
+- Realistic body proportions and natural poses (seated, leaning, gesturing), not chibi sprites
 - Greek classical attire: Togas, chitons, sandals
 - Distinct color schemes for each persona, muted/harmonized so all six sit naturally in the warm scene palette (the persona color appears as the garment, drape, or trim)
-- Minimal shading with cel-shading technique
+
+> Note: an earlier draft of this spec fixed characters at 32x48 sprites. That constraint capped visual quality far below the intended reference style and has been removed.
 
 **Personas and Visual Identifiers**
 
@@ -176,13 +177,14 @@ The entire application lives in a single `index.html` file with no dependencies 
 
 ### File Structure
 - `index.html` — markup, styles, and all JavaScript: canvas rendering, animation, speech bubbles, and debate orchestration
-- All sprites and background art are drawn procedurally on the canvas at pixel-art resolution (no external image assets)
+- All art is procedural (no external image assets): painted smoothly with canvas vector graphics, then quantized onto the pixel grid by the render pipeline
 
 ### How It Works
-1. The scene is rendered to a 960x540 canvas. Background layers (sky, sea, islands, the Acropolis with its temple, the stone parapet, potted olive, amphora, and mosaic floor) are painted once to an offscreen buffer at low resolution and upscaled with image smoothing disabled for a crisp pixel look. Cream marble columns frame the scene in the foreground with parallax.
-2. The six characters are drawn each frame from procedural pixel-grid sprites: four seated debaters facing the viewer (40x62 grid), and the two nearest — Grump and Synthesizer — seen from behind as large figures cropped by the bottom corners of the frame (36x56 grid at double the pixel density). Breathing, blinking, nodding, mouth, and gesture animation is driven by `requestAnimationFrame`; back-view characters turn their head to profile while speaking.
-3. When a debate starts, the orchestrator runs up to `MAX_TURNS` rounds. In each round the five debaters speak in sequence (each sees the transcript so far), then the Judge deliberates and issues a `VERDICT: CONSENSUS` or `VERDICT: CONTINUE` marker. On consensus or after the final round, the Judge delivers a closing verdict.
-4. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
+1. Every frame, the scene is painted *smoothly* at full resolution (960x540) with canvas vector graphics: gradients for sky, sea, skin and cloth; bezier silhouettes for anatomy and drapery; soft shadows. The background (sky, sea, islands, the whitewashed coastal town, the Acropolis with its temple, cypresses, stone parapet, potted olive, amphora, mosaic medallion, framing marble columns) is painted once and cached.
+2. The smooth frame is then downsampled to a 320x180 pixel grid, palette-posterized (11 levels per channel) with 4x4 Bayer ordered dithering, and upscaled 3x with nearest-neighbour sampling. This paint-then-quantize pipeline is what gives the dense, hand-shaded pixel-art illustration look.
+3. The six characters are painted each frame with real poses: four seated debaters facing the viewer on marble benches, and the two nearest — Grump and Synthesizer — seen from behind as large foreground figures cropped by the frame. Breathing, blinking, nodding, mouth and gesture animation runs via `requestAnimationFrame`; back-view characters turn their head to profile and gesture while speaking.
+4. When a debate starts, the orchestrator runs up to `MAX_TURNS` rounds. In each round the five debaters speak in sequence (each sees the transcript so far), then the Judge deliberates and issues a `VERDICT: CONSENSUS` or `VERDICT: CONTINUE` marker. On consensus or after the final round, the Judge delivers a closing verdict.
+5. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
 
 ### Configuration
 Tunable constants near the top of the script in `index.html`:
