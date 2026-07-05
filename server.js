@@ -18,7 +18,17 @@ const path = require('path');
 let pg = null;
 try { pg = require('pg'); } catch { /* optional locally */ }
 
-const KEY = process.env.OPENROUTER_API_KEY || '';
+const KEY = (process.env.OPENROUTER_API_KEY || '').trim().replace(/^["']+|["']+$/g, '');
+// Model fallback chain: tried in order until one answers. Override with
+// DEBATE_MODELS (comma-separated OpenRouter model ids).
+const DEFAULT_CHAIN = [
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'deepseek/deepseek-chat-v3-0324:free',
+    'google/gemma-3-27b-it:free',
+    'mistralai/mistral-small-3.1-24b-instruct:free'
+];
+const MODELS = (process.env.DEBATE_MODELS || '').split(',').map(m => m.trim()).filter(Boolean);
+const CHAIN = MODELS.length ? MODELS : DEFAULT_CHAIN;
 const UPSTREAM = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai';
 const DB_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
 const PORT = Number(process.env.PORT) || 3000;
@@ -85,13 +95,26 @@ http.createServer(async (req, res) => {
         if (url === '/api/chat' && req.method === 'POST') {
             if (!KEY) return send(res, 503, { error: { message: 'OPENROUTER_API_KEY is not configured on the server' } });
             const body = await readBody(req);
-            const r = await fetch(UPSTREAM + '/api/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'X-Title': 'Socratic Approach' },
-                body: JSON.stringify(body)
-            });
-            res.writeHead(r.status, { 'Content-Type': 'application/json' });
-            return res.end(await r.text());
+            let last = { status: 502, text: JSON.stringify({ error: { message: 'no models configured' } }) };
+            for (const model of CHAIN) {
+                const r = await fetch(UPSTREAM + '/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'X-Title': 'Socratic Approach' },
+                    body: JSON.stringify({ ...body, model })
+                });
+                const text = await r.text();
+                if (r.ok) {
+                    try {
+                        const d = JSON.parse(text);
+                        const c = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+                        if (c && c.trim()) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(text); }
+                    } catch { /* fall through to next model */ }
+                }
+                console.warn(`model ${model} failed (HTTP ${r.status}), trying next`);
+                last = { status: r.status, text };
+            }
+            res.writeHead(last.status, { 'Content-Type': 'application/json' });
+            return res.end(last.text);
         }
         if (url === '/api/history') {
             const rows = await withDb(db =>

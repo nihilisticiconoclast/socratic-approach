@@ -16,7 +16,7 @@ This project implements a multi-agent LLM debate system with a pixel-art visual 
 
 ## Key Files
 - index.html - Main application: canvas rendering, animation, debate orchestration (calls the api/ endpoints only)
-- api/chat.js - server-side OpenRouter proxy (holds OPENROUTER_API_KEY)
+- api/chat.js - server-side OpenRouter proxy (holds OPENROUTER_API_KEY); tries the DEBATE_MODELS fallback chain in order
 - api/history.js / api/record.js - internal Neon chronicle: recent history for prompt augmentation, persistence of finished debates
 - api/health.js, api/_db.js - server status and shared DB access (table auto-created)
 - server.js - local dev server exposing the same /api endpoints
@@ -36,7 +36,7 @@ This project implements a multi-agent LLM debate system with a pixel-art visual 
 ### Technical Stack
 - HTML5 Canvas for rendering
 - Vanilla JavaScript for logic and animation
-- OpenRouter API for LLM interactions
+- OpenRouter API for LLM interactions, via the server proxy with an ordered model fallback chain (no model choice in the UI)
 - CSS for UI styling
 
 ### Personas and System Prompts
@@ -102,3 +102,4 @@ Each agent has a carefully crafted system prompt to maintain its role:
 - Secrets live only in server-side env vars (api/ functions or server.js); never reintroduce a browser-side key path
 - Animation performance varies by device
 - Mobile support may need additional work
+- The input dialog is a floating panel raised above the bottom edge of the scene; the model is never user-selectable

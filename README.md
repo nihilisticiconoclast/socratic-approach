@@ -10,7 +10,7 @@ The user experience is exactly this: **type a question → watch the six philoso
 
 Behind the page sits a small server API that holds the secrets:
 
-- `/api/chat` — proxies the LLM calls to OpenRouter with the server-held `OPENROUTER_API_KEY`
+- `/api/chat` — proxies the LLM calls to OpenRouter with the server-held `OPENROUTER_API_KEY`, trying a chain of models in order so a failing or rate-limited free model never kills a debate
 - `/api/history` — returns recent questions & verdicts from Neon; the orchestrator feeds them into every new debate so past debates inform new ones
 - `/api/record` — stores each finished debate (question, transcript, verdict, consensus) in Neon; the table is created automatically
 - `/api/health` — tells the page the server is ready
@@ -116,9 +116,19 @@ The page is a single `index.html` with no dependencies beyond the "Press Start 2
 5. Each reply is displayed as a color-coded speech bubble above the speaker with a character-by-character typing effect, while the speaker plays its speaking animation.
 
 ### Configuration
+
+Server environment variables:
+- `OPENROUTER_API_KEY` — required (stray quotes/whitespace from pasting are stripped automatically)
+- `NEON_DATABASE_URL` / `DATABASE_URL` — Neon connection string for the internal chronicle
+- `DEBATE_MODELS` — optional comma-separated OpenRouter model ids, tried in order as fallbacks. Default chain: `meta-llama/llama-3.3-70b-instruct:free`, `deepseek/deepseek-chat-v3-0324:free`, `google/gemma-3-27b-it:free`, `mistralai/mistral-small-3.1-24b-instruct:free`
+- `CORS_ORIGIN` — only for split hosting (see Deploy)
+
 Tunable constants near the top of the script in `index.html`:
-- `DEFAULT_MODEL` — OpenRouter model ID (defaults to a free-tier model; can also be changed in the UI)
 - `MAX_TURNS` — maximum debate rounds before the Judge must rule (default 3)
 - `API_DELAY_MS` — pause between API calls to respect free-tier rate limits
 - `LO_W` / `LO_H` — resolution of the pixelation grid (default 320x180)
 - `LEVELS` — posterization levels per color channel (default 11)
+
+### Troubleshooting
+- **"User not found"** during a debate — OpenRouter's 401 for an invalid API key. Re-copy the key from openrouter.ai/keys into the host's `OPENROUTER_API_KEY` env var and redeploy.
+- **`/api/health`** shows what the server can see: `proxy:false` = key missing, `db:false` = database URL missing.

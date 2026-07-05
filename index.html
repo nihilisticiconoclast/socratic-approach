@@ -45,6 +45,7 @@
 
     #game-container {
         flex: 1;
+        position: relative;
         display: flex;
         flex-direction: column;
         min-height: 0;
@@ -120,7 +121,7 @@
     #status-scroll {
         position: absolute;
         left: 50%;
-        bottom: 12px;
+        bottom: 160px;
         transform: translateX(-50%);
         background: var(--parchment);
         color: var(--parchment-ink);
@@ -141,9 +142,17 @@
     #status-scroll.error { color: #991b1b; }
 
     #input-section {
-        background: var(--surface);
-        border-top: 4px solid var(--stone-dark);
-        padding: 12px 16px;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 52px;
+        z-index: 5;
+        width: min(720px, 92%);
+        background: rgba(58, 47, 34, 0.93);
+        border: 3px solid var(--stone-dark);
+        border-radius: 6px;
+        box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+        padding: 14px 16px;
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
@@ -229,10 +238,6 @@
             <input id="topic-input" type="text" maxlength="300"
                    placeholder="e.g. Is honesty always the best policy?">
         </div>
-        <div class="field">
-            <label for="model-input">Model</label>
-            <input id="model-input" type="text" spellcheck="false">
-        </div>
         <div class="buttons">
             <button id="start-btn">Begin Debate</button>
             <button id="stop-btn">Stop</button>
@@ -246,10 +251,10 @@
 /* ============================================================
  * Configuration
  * ============================================================ */
-const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 const MAX_TURNS = 3;          // debate rounds before the Judge must rule
 const API_DELAY_MS = 1200;    // pause between calls (free-tier rate limits)
 const TYPE_SPEED_MS = 22;     // typing effect, per character
+let LAST_MODEL = '';          // model that actually answered (from the server's fallback chain)
 const BUBBLE_LINGER_MS = 1000;
 
 const SCENE_W = 960, SCENE_H = 540;
@@ -1136,8 +1141,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function callAgent(persona, userContent, signal) {
     // All LLM calls go through the server-side proxy (/api/chat), which holds
-    // the OpenRouter key. No credential ever exists in the browser.
-    const model = modelInput.value.trim() || DEFAULT_MODEL;
+    // the OpenRouter key and picks the model (with automatic fallbacks).
+    // No credential and no model choice ever exists in the browser.
     let lastErr;
     for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await sleep(3000 * attempt);
@@ -1147,7 +1152,6 @@ async function callAgent(persona, userContent, signal) {
                 signal,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model,
                     max_tokens: 300,
                     messages: [
                         { role: 'system', content: persona.system },
@@ -1165,6 +1169,7 @@ async function callAgent(persona, userContent, signal) {
                                 'OpenRouter error (HTTP ' + res.status + ')');
             }
             const data = await res.json();
+            if (data.model) LAST_MODEL = data.model;
             const text = data.choices && data.choices[0] &&
                          data.choices[0].message && data.choices[0].message.content;
             if (!text || !text.trim()) { lastErr = new Error('Empty response from model'); continue; }
@@ -1258,7 +1263,7 @@ async function runDebate(topic) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             question: topic, transcript, verdict: summary, consensus,
-            model: modelInput.value.trim() || DEFAULT_MODEL
+            model: LAST_MODEL || 'auto'
         })
     }).catch(() => {});
 
@@ -1270,11 +1275,8 @@ async function runDebate(topic) {
  * UI wiring
  * ============================================================ */
 const topicInput = document.getElementById('topic-input');
-const modelInput = document.getElementById('model-input');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
-
-modelInput.value = localStorage.getItem('sa_model') || DEFAULT_MODEL;
 
 // The page requires its server (the api/ functions, or server.js locally).
 let SERVER_OK = false;
@@ -1297,8 +1299,6 @@ startBtn.addEventListener('click', async () => {
         setStatus('The debate server is not connected. Deploy the app with its OPENROUTER_API_KEY, or run: node server.js', { error: true });
         return;
     }
-
-    localStorage.setItem('sa_model', modelInput.value.trim() || DEFAULT_MODEL);
 
     controller = new AbortController();
     setRunning(true);
