@@ -1279,12 +1279,23 @@ const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 
 // The page requires its server (the api/ functions, or server.js locally).
+// Free hosting tiers sleep when idle and can take up to a minute to wake, so
+// the health check retries patiently instead of deciding once at page load.
 let SERVER_OK = false;
-fetch(API_BASE + '/api/health').then(r => r.ok ? r.json() : null).then(d => {
-    SERVER_OK = Boolean(d && d.proxy);
-    if (d && !d.proxy)
-        setStatus('The server is running but OPENROUTER_API_KEY is not configured.', { error: true, sticky: true });
-}).catch(() => {});
+async function checkServer() {
+    try {
+        const d = await fetch(API_BASE + '/api/health').then(r => r.ok ? r.json() : null);
+        SERVER_OK = Boolean(d && d.proxy);
+        return SERVER_OK;
+    } catch { return false; }
+}
+checkServer().then(ok => {
+    if (ok) return;
+    let tries = 0;
+    const timer = setInterval(async () => {
+        if (await checkServer() || ++tries >= 20) clearInterval(timer);
+    }, 3000);
+});
 
 function setRunning(running) {
     startBtn.disabled = running;
@@ -1296,8 +1307,11 @@ startBtn.addEventListener('click', async () => {
     const topic = topicInput.value.trim();
     if (!topic) { setStatus('Offer the assembly a question first.', { error: true }); topicInput.focus(); return; }
     if (!SERVER_OK) {
-        setStatus('The debate server is not connected. Deploy the app with its OPENROUTER_API_KEY, or run: node server.js', { error: true });
-        return;
+        setStatus('The agora is waking... one moment.', { sticky: true });
+        if (!(await checkServer())) {
+            setStatus('The agora is still waking - please try again in a few seconds.', { error: true });
+            return;
+        }
     }
 
     controller = new AbortController();

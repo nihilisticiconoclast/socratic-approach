@@ -16,7 +16,7 @@ This project implements a multi-agent LLM debate system with a pixel-art visual 
 
 ## Key Files
 - index.html - Main application: canvas rendering, animation, debate orchestration (calls the api/ endpoints only)
-- api/chat.js - server-side OpenRouter proxy (holds OPENROUTER_API_KEY); tries the DEBATE_MODELS fallback chain in order
+- api/chat.js - server-side OpenRouter proxy (holds OPENROUTER_API_KEY); builds the model chain from OpenRouter's live :free list (DEBATE_MODELS env overrides) and falls through on failures
 - api/history.js / api/record.js - internal Neon chronicle: recent history for prompt augmentation, persistence of finished debates
 - api/health.js, api/_db.js - server status and shared DB access (table auto-created)
 - server.js - local dev server exposing the same /api endpoints

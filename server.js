@@ -27,8 +27,31 @@ const DEFAULT_CHAIN = [
     'google/gemma-3-27b-it:free',
     'mistralai/mistral-small-3.1-24b-instruct:free'
 ];
-const MODELS = (process.env.DEBATE_MODELS || '').split(',').map(m => m.trim()).filter(Boolean);
-const CHAIN = MODELS.length ? MODELS : DEFAULT_CHAIN;
+const ENV_MODELS = (process.env.DEBATE_MODELS || '').split(',').map(m => m.trim()).filter(Boolean);
+
+// Free models come and go: build the chain from OpenRouter's live model list
+// (cached 1h), preferring strong families first. DEBATE_MODELS overrides.
+let cachedChain = null, cachedAt = 0;
+const PREF = ['meta-llama/llama-3.3', 'deepseek/', 'qwen/', 'google/gemma', 'meta-llama/', 'mistralai/', 'google/', ''];
+const rank = id => PREF.findIndex(p => id.startsWith(p));
+async function getChain() {
+    if (ENV_MODELS.length) return ENV_MODELS;
+    if (cachedChain && Date.now() - cachedAt < 3600e3) return cachedChain;
+    try {
+        const r = await fetch(UPSTREAM + '/api/v1/models', { headers: { 'Authorization': 'Bearer ' + KEY } });
+        if (r.ok) {
+            const d = await r.json();
+            const free = (d.data || []).map(m => m.id).filter(id => typeof id === 'string' && id.endsWith(':free'));
+            const chain = free.sort((a, b) => rank(a) - rank(b)).slice(0, 6);
+            if (chain.length) {
+                cachedChain = chain; cachedAt = Date.now();
+                console.log('model chain from live list:', chain.join(', '));
+                return chain;
+            }
+        }
+    } catch { /* fall back below */ }
+    return DEFAULT_CHAIN;
+}
 const UPSTREAM = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai';
 const DB_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
 const PORT = Number(process.env.PORT) || 3000;
@@ -96,7 +119,7 @@ http.createServer(async (req, res) => {
             if (!KEY) return send(res, 503, { error: { message: 'OPENROUTER_API_KEY is not configured on the server' } });
             const body = await readBody(req);
             let last = { status: 502, text: JSON.stringify({ error: { message: 'no models configured' } }) };
-            for (const model of CHAIN) {
+            for (const model of await getChain()) {
                 const r = await fetch(UPSTREAM + '/api/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'X-Title': 'Socratic Approach' },
@@ -113,8 +136,12 @@ http.createServer(async (req, res) => {
                 console.warn(`model ${model} failed (HTTP ${r.status}), trying next`);
                 last = { status: r.status, text };
             }
-            res.writeHead(last.status, { 'Content-Type': 'application/json' });
-            return res.end(last.text);
+            cachedChain = null;                       // stale chain? refresh next call
+            try {
+                const d = JSON.parse(last.text);
+                if (d && d.error) d.error.message = 'All debate models failed. Last error: ' + d.error.message;
+                return send(res, last.status, d);
+            } catch { res.writeHead(last.status, { 'Content-Type': 'application/json' }); return res.end(last.text); }
         }
         if (url === '/api/history') {
             const rows = await withDb(db =>

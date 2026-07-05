@@ -120,7 +120,7 @@ The page is a single `index.html` with no dependencies beyond the "Press Start 2
 Server environment variables:
 - `OPENROUTER_API_KEY` — required (stray quotes/whitespace from pasting are stripped automatically)
 - `NEON_DATABASE_URL` / `DATABASE_URL` — Neon connection string for the internal chronicle
-- `DEBATE_MODELS` — optional comma-separated OpenRouter model ids, tried in order as fallbacks. Default chain: `meta-llama/llama-3.3-70b-instruct:free`, `deepseek/deepseek-chat-v3-0324:free`, `google/gemma-3-27b-it:free`, `mistralai/mistral-small-3.1-24b-instruct:free`
+- `DEBATE_MODELS` — optional comma-separated OpenRouter model ids, tried in order as fallbacks. If unset, the server builds the chain automatically from OpenRouter's **live list of `:free` models** (cached 1h, strong model families preferred), so withdrawn free models never break the app
 - `CORS_ORIGIN` — only for split hosting (see Deploy)
 
 Tunable constants near the top of the script in `index.html`:
@@ -131,4 +131,6 @@ Tunable constants near the top of the script in `index.html`:
 
 ### Troubleshooting
 - **"User not found"** during a debate — OpenRouter's 401 for an invalid API key. Re-copy the key from openrouter.ai/keys into the host's `OPENROUTER_API_KEY` env var and redeploy.
+- **"All debate models failed"** / errors saying a free model is unavailable or has no endpoints — if *every* free model fails, the usual cause is OpenRouter's privacy setting: free models require it. Go to **openrouter.ai → Settings → Privacy** and enable free-endpoint prompt training/logging. (Individual withdrawn models are handled automatically by the live model chain.)
+- **"The agora is still waking"** — free hosting tiers (e.g. Render) sleep when idle and take up to a minute to wake. The page retries automatically; just try again shortly.
 - **`/api/health`** shows what the server can see: `proxy:false` = key missing, `db:false` = database URL missing.
