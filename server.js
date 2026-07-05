@@ -115,6 +115,10 @@ http.createServer(async (req, res) => {
         if (url === '/api/health') {
             return send(res, 200, { proxy: Boolean(KEY), db: Boolean(DB_URL) });
         }
+        if (url === '/api/diag') {
+            const { runDiag } = require('./api/diag.js');
+            return send(res, 200, await runDiag(UPSTREAM, KEY));
+        }
         if (url === '/api/chat' && req.method === 'POST') {
             if (!KEY) return send(res, 503, { error: { message: 'OPENROUTER_API_KEY is not configured on the server' } });
             const body = await readBody(req);

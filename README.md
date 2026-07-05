@@ -130,7 +130,10 @@ Tunable constants near the top of the script in `index.html`:
 - `LEVELS` — posterization levels per color channel (default 11)
 
 ### Troubleshooting
+
+**First stop: open `/api/diag` on your deployment** (e.g. `https://your-app.onrender.com/api/diag`). It tests the key, the free-model list, and one live completion from inside the server, and prints a `hint` line naming the exact fix. If `/api/diag` returns *Not Found*, the host is running an old build — redeploy latest `main`.
+
 - **"User not found"** during a debate — OpenRouter's 401 for an invalid API key. Re-copy the key from openrouter.ai/keys into the host's `OPENROUTER_API_KEY` env var and redeploy.
-- **"All debate models failed"** / errors saying a free model is unavailable or has no endpoints — if *every* free model fails, the usual cause is OpenRouter's privacy setting: free models require it. Go to **openrouter.ai → Settings → Privacy** and enable free-endpoint prompt training/logging. (Individual withdrawn models are handled automatically by the live model chain.)
+- **"All debate models failed"** / a free model reported unavailable — if *every* free model fails, it is one of two account-side causes, and `/api/diag` will tell you which: (a) OpenRouter's privacy setting — free models require enabling prompt training/logging at **openrouter.ai → Settings → Privacy**; (b) the daily free-model quota — accounts with under $10 lifetime credits get ~50 free requests/day and one debate uses ~13, so a day of testing exhausts it; add $10 credit to raise it to ~1000/day or wait for the reset. (Individually withdrawn models are handled automatically by the live model chain.)
 - **"The agora is still waking"** — free hosting tiers (e.g. Render) sleep when idle and take up to a minute to wake. The page retries automatically; just try again shortly.
 - **`/api/health`** shows what the server can see: `proxy:false` = key missing, `db:false` = database URL missing.
